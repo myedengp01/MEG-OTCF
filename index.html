@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MEG-FORMS-OTCF v2026.07.29-19:30</title>
+<title>MEG-FORMS-OTCF v2026.07.29-20:00</title>
 <style>
   :root{
     --pink:#f7b8cc;
@@ -207,6 +207,7 @@
   }
   @media print{
     html, body{background:#fff;padding:0;margin:0;font-size:9px;line-height:1.1;}
+    *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
     .sheet{border:none;padding:0;max-width:none;}
     .no-print{display:none !important;}
     .version{font-size:8px;margin-bottom:2px;}
@@ -263,6 +264,7 @@
     .form-title{font-size:9px;
     .serial-box{font-size:9px;min-width:0;}
     .serial-display{font-size:10px;}
+    .print-empty{visibility:hidden;}
   }
   }
   .toolbar{
@@ -344,7 +346,7 @@
 </div>
 
 <div class="sheet">
-  <div class="version">OTCF v.2026.07.03-23:15 &nbsp;|&nbsp; MEG-FORMS-OTCF v2026.07.29-19:30</div>
+  <div class="version">OTCF v.2026.07.03-23:15 &nbsp;|&nbsp; MEG-FORMS-OTCF v2026.07.29-20:00</div>
 
   <div class="form-header">
     <div class="logo-box"><img id="companyLogo" src="" alt="logo"></div>
@@ -811,6 +813,22 @@ async function generatePDFBlob(){
   return pdf.output("blob");
 }
 
+// ---------- Blank out unfilled "-- Select --" / empty time fields for print/PDF ----------
+function applyPrintBlanking(){
+  document.querySelectorAll("#tableBody tr").forEach(tr=>{
+    const claimSelect = tr.querySelector(".claim-cell select");
+    if(claimSelect && claimSelect.value === "") claimSelect.classList.add("print-empty");
+    tr.querySelectorAll(".time-cell input[type='time']").forEach(inp=>{
+      if(!inp.value) inp.classList.add("print-empty");
+    });
+  });
+}
+function removePrintBlanking(){
+  document.querySelectorAll(".print-empty").forEach(el=>el.classList.remove("print-empty"));
+}
+window.addEventListener("beforeprint", applyPrintBlanking);
+window.addEventListener("afterprint", removePrintBlanking);
+
 document.getElementById("printBtn").addEventListener("click", ()=>{
   const originalTitle = document.title;
   document.title = buildFileName().replace(".pdf", "");
@@ -820,6 +838,7 @@ document.getElementById("printBtn").addEventListener("click", ()=>{
 
 document.getElementById("shareBtn").addEventListener("click", async ()=>{
   setStatus("Generating PDF...");
+  applyPrintBlanking(); // html2canvas captures the live DOM directly, so blanking must be applied manually here too
   try{
     const blob = await generatePDFBlob();
     const fileName = buildFileName();
@@ -846,6 +865,8 @@ document.getElementById("shareBtn").addEventListener("click", async ()=>{
   } catch(err){
     console.error(err);
     setStatus("Couldn't generate PDF. Please try again.");
+  } finally{
+    removePrintBlanking(); // always restore the live editing view, whether share succeeded or failed
   }
 });
 </script>
