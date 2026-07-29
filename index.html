@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MEG-FORMS-OTCF v2026.07.29-20:00</title>
+<title>MEG-FORMS-OTCF v2026.07.29-21:00</title>
 <style>
   :root{
     --pink:#f7b8cc;
@@ -266,6 +266,26 @@
     .serial-display{font-size:10px;}
     .print-empty{visibility:hidden;}
   }
+  #authOverlay{
+    position:fixed;inset:0;background:#eef1f5;z-index:2000;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .auth-box{background:#fff;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.15);padding:32px;width:360px;max-width:90vw;}
+  .auth-box h2{margin:0 0 4px;color:var(--navy);font-size:20px;}
+  .auth-box .auth-sub{color:var(--muted);font-size:12.5px;margin-bottom:18px;}
+  .auth-box input{width:100%;padding:9px 10px;margin-bottom:10px;border:1px solid var(--line);border-radius:6px;font-size:13.5px;box-sizing:border-box;}
+  .auth-box button.auth-submit{width:100%;padding:10px;border:none;border-radius:6px;background:var(--navy);color:#fff;font-weight:700;font-size:14px;cursor:pointer;margin-top:4px;}
+  .auth-toggle{text-align:center;margin-top:14px;font-size:12.5px;color:var(--muted);}
+  .auth-toggle a{color:var(--navy);cursor:pointer;font-weight:600;text-decoration:none;}
+  .auth-error{color:#c0392b;font-size:12px;margin-bottom:8px;min-height:16px;}
+  .auth-pending-box{text-align:center;}
+  #topUserBar{display:none;align-items:center;gap:10px;background:#eef1f5;padding:6px 14px;font-size:12px;color:var(--muted);max-width:980px;margin:0 auto 10px;border-radius:6px;}
+  #topUserBar button{font-size:11px;padding:3px 9px;border-radius:5px;border:1px solid var(--line);background:#fff;cursor:pointer;}
+  .approver-panel{max-width:980px;margin:0 auto 16px;background:#fff8e1;border:1px solid #e6d28a;border-radius:8px;padding:14px 18px;}
+  .approver-panel h3{margin:0 0 10px;font-size:15px;}
+  .approver-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #eee;font-size:13px;}
+  .approver-row:last-child{border-bottom:none;}
+  .approve-btn{background:#2e8b57;color:#fff;border:none;padding:6px 14px;border-radius:5px;cursor:pointer;font-weight:600;font-size:12px;}
   }
   .toolbar{
     background:var(--navy);
@@ -331,22 +351,61 @@
   .serial-edit{display:flex;gap:4px;justify-content:flex-end;margin-top:6px;flex-wrap:wrap;}
   .serial-edit input{width:64px;font-size:11px;padding:3px 4px;border:1px solid var(--line);border-radius:4px;text-align:center;}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
+
+<div id="authOverlay">
+  <div class="auth-box" id="authBoxLogin">
+    <h2>MEG-FORMS Login</h2>
+    <div class="auth-sub">Sign in to access the Overtime Claim Form (OTCF)</div>
+    <div class="auth-error" id="loginError"></div>
+    <input type="email" id="loginEmail" placeholder="Email">
+    <input type="password" id="loginPassword" placeholder="Password">
+    <button class="auth-submit" onclick="doSignIn()">Sign In</button>
+    <div class="auth-toggle">No account yet? <a onclick="showAuthBox('signup')">Sign up</a></div>
+  </div>
+  <div class="auth-box" id="authBoxSignup" style="display:none;">
+    <h2>Create Account</h2>
+    <div class="auth-sub">Sign up, then wait for admin approval to access forms</div>
+    <div class="auth-error" id="signupError"></div>
+    <input type="text" id="signupName" placeholder="Full Name">
+    <input type="email" id="signupEmail" placeholder="Email">
+    <input type="password" id="signupPassword" placeholder="Password (min 6 characters)">
+    <button class="auth-submit" onclick="doSignUp()">Sign Up</button>
+    <div class="auth-toggle">Already have an account? <a onclick="showAuthBox('login')">Sign in</a></div>
+  </div>
+  <div class="auth-box auth-pending-box" id="authBoxPending" style="display:none;">
+    <h2>Awaiting Approval</h2>
+    <div class="auth-sub">You're signed in, but don't have access to OTCF yet. Please ask an admin to grant you access.</div>
+    <button class="auth-submit" style="background:#6b7280;margin-top:16px;" onclick="doSignOut()">Sign Out</button>
+  </div>
+</div>
+
+<div id="topUserBar">
+  <span id="topUserLabel"></span>
+  <span style="flex:1"></span>
+  <button onclick="doSignOut()">Sign Out</button>
+</div>
 
 <div class="toolbar no-print">
   <a class="dash-link" href="https://myedengp01.github.io/DB-MEG-FORMS/">← Dashboard</a>
   <span class="form-tag">OTCF Digital Form</span>
   <div class="spacer"></div>
-  <button onclick="notYetWired('Save Draft')">💾 Save Draft</button>
-  <button class="btn-submit" onclick="notYetWired('Submit Claim')">✅ Submit Claim</button>
+  <button onclick="saveDraftToSupabase()">💾 Save Draft</button>
+  <button class="btn-submit" onclick="submitClaim()">✅ Submit Claim</button>
   <button onclick="notYetWired('Backup to Drive')">⬆️ Backup to Drive</button>
   <button class="btn-print" id="printBtn">🖨️ Print / Save PDF</button>
   <button class="btn-share" id="shareBtn">📤 Share to WhatsApp</button>
 </div>
 
+<div class="approver-panel no-print" id="approverPanel" style="display:none;">
+  <h3>⏳ Pending Approvals</h3>
+  <div id="approverList"></div>
+</div>
+
 <div class="sheet">
-  <div class="version">OTCF v.2026.07.03-23:15 &nbsp;|&nbsp; MEG-FORMS-OTCF v2026.07.29-20:00</div>
+  <div class="version">OTCF v.2026.07.03-23:15 &nbsp;|&nbsp; MEG-FORMS-OTCF v2026.07.29-21:00</div>
 
   <div class="form-header">
     <div class="logo-box"><img id="companyLogo" src="" alt="logo"></div>
@@ -460,9 +519,9 @@
     <div class="sig-line">Claimant's Signature</div>
     <div class="approved">
       <h3>Approved By</h3>
-      <div class="field"><label>Name</label><input type="text"></div>
-      <div class="field"><label>Signature</label><input type="text"></div>
-      <div class="field"><label>Date</label><input type="date"></div>
+      <div class="field"><label>Name</label><input type="text" id="approvedByName" readonly></div>
+      <div class="field"><label>Signature</label><input type="text" id="approvedToken" readonly placeholder="(token stamped on approval)"></div>
+      <div class="field"><label>Date</label><input type="text" id="approvedDate" readonly></div>
     </div>
   </div>
 </div>
@@ -528,12 +587,12 @@ function setupAddableDropdown(selectId){
     if(select.value === "__add_new__"){
       const entered = prompt("Enter new value:");
       if(entered && entered.trim()){
-        const list = loadList(def.storeKey, def.seed);
-        if(!list.includes(entered.trim())){
-          list.push(entered.trim());
-          saveList(def.storeKey, list);
+        if(typeof rememberOtcfValue === 'function') rememberOtcfValue(selectId, entered.trim());
+        else {
+          const list = loadList(def.storeKey, def.seed);
+          if(!list.includes(entered.trim())){ list.push(entered.trim()); saveList(def.storeKey, list); }
+          populateDropdown(selectId);
         }
-        populateDropdown(selectId);
         select.value = entered.trim();
       } else {
         select.value = select.options[0] ? select.options[0].value : "";
@@ -769,6 +828,257 @@ function notYetWired(label){
 })();
 onCompanyChange(); // set default logo + serial on load
 
+/* ===================== SUPABASE / AUTH / SUBMISSIONS ===================== */
+const SUPABASE_URL = "https://vzngfswtofegimfcoigx.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ6bmdmc3d0b2ZlZ2ltZmNvaWd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyODA5MzUsImV4cCI6MjEwMDg1NjkzNX0.47rTrOjzNgxarCBYGapqajLw5v_yATbeKitiyP6a2Sg";
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const FORM_CODE = "otcf";
+const EDGE_FN_URL = SUPABASE_URL + "/functions/v1/otcf-notify";
+
+let currentUser = null, currentProfile = null, currentPerm = null, currentDraftId = null;
+
+function showAuthBox(which){
+  document.getElementById('authBoxLogin').style.display = which==='login' ? 'block':'none';
+  document.getElementById('authBoxSignup').style.display = which==='signup' ? 'block':'none';
+  document.getElementById('authBoxPending').style.display = which==='pending' ? 'block':'none';
+  document.getElementById('loginError').textContent = '';
+  document.getElementById('signupError').textContent = '';
+}
+async function doSignIn(){
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginError');
+  errEl.textContent = '';
+  if(!email || !password){ errEl.textContent = 'Enter email and password.'; return; }
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  if(error){ errEl.textContent = error.message; return; }
+  await onAuthReady();
+}
+async function doSignUp(){
+  const name = document.getElementById('signupName').value.trim();
+  const email = document.getElementById('signupEmail').value.trim();
+  const password = document.getElementById('signupPassword').value;
+  const errEl = document.getElementById('signupError');
+  errEl.textContent = '';
+  if(!name || !email || !password){ errEl.textContent = 'Fill in all fields.'; return; }
+  if(password.length < 6){ errEl.textContent = 'Password must be at least 6 characters.'; return; }
+  const { error } = await sb.auth.signUp({ email, password, options:{ data:{ full_name:name } } });
+  if(error){ errEl.textContent = error.message; return; }
+  await onAuthReady();
+}
+async function doSignOut(){
+  await sb.auth.signOut();
+  currentUser = null; currentProfile = null; currentPerm = null; currentDraftId = null;
+  document.getElementById('authOverlay').style.display = 'flex';
+  document.getElementById('topUserBar').style.display = 'none';
+  document.getElementById('approverPanel').style.display = 'none';
+  document.getElementById('loginEmail').value = '';
+  document.getElementById('loginPassword').value = '';
+  showAuthBox('login');
+}
+async function onAuthReady(){
+  const { data: { user } } = await sb.auth.getUser();
+  if(!user){ showAuthBox('login'); return; }
+  currentUser = { id: user.id, email: user.email };
+
+  const { data: profile } = await sb.from('profiles').select('*').eq('id', user.id).single();
+  currentProfile = profile;
+
+  const { data: perm } = await sb.from('form_permissions').select('*')
+    .eq('user_id', user.id).eq('form_code', FORM_CODE).maybeSingle();
+  currentPerm = perm || null;
+
+  if(!currentPerm || !currentPerm.can_submit){
+    showAuthBox('pending');
+    return;
+  }
+
+  document.getElementById('authOverlay').style.display = 'none';
+  document.getElementById('topUserBar').style.display = 'flex';
+  document.getElementById('topUserLabel').textContent =
+    `Signed in as ${currentProfile?.full_name || currentUser.email}${currentPerm.is_admin ? ' (Admin)' : (currentPerm.can_approve ? ' (Approver)' : '')}`;
+
+  // Auto-fill Name (empName) with the signed-in user's name, still editable
+  if(currentProfile?.full_name && !document.getElementById('empName').value){
+    rememberOtcfValue('empName', currentProfile.full_name);
+    document.getElementById('empName').value = currentProfile.full_name;
+  }
+
+  await loadOtcfSharedLists();
+
+  if(currentPerm.is_admin || currentPerm.can_approve){
+    document.getElementById('approverPanel').style.display = 'block';
+    await renderApproverPanel();
+  }
+}
+
+/* ---------- Shared dropdown lists synced with Supabase ---------- */
+const OTCF_TABLE_MAP = { empName: 'otcf_staff', department: 'otcf_departments', designation: 'otcf_designations' };
+async function loadOtcfSharedLists(){
+  for(const [selectId, table] of Object.entries(OTCF_TABLE_MAP)){
+    try{
+      const { data } = await sb.from(table).select('name');
+      if(data){
+        const def = DROPDOWN_DEFS[selectId];
+        const merged = Array.from(new Set([...(def.seed||[]), ...data.map(r=>r.name)]));
+        saveList(def.storeKey, merged);
+        populateDropdown(selectId);
+      }
+    }catch(e){ console.error('Failed to load '+table, e); }
+  }
+}
+function rememberOtcfValue(selectId, val){
+  val = (val||'').trim();
+  if(!val) return;
+  const def = DROPDOWN_DEFS[selectId];
+  const list = loadList(def.storeKey, def.seed);
+  if(!list.includes(val)){
+    list.push(val);
+    saveList(def.storeKey, list);
+    populateDropdown(selectId);
+  }
+  const table = OTCF_TABLE_MAP[selectId];
+  if(table && currentUser){
+    sb.from(table).insert({ name: val, created_by: currentUser.id }).then(({error})=>{
+      if(error) console.error('Failed to push new '+table+' entry', error);
+    });
+  }
+}
+
+/* ---------- Collect current form state into a submission payload ---------- */
+function collectOtcfPayload(status){
+  const rows = [];
+  document.querySelectorAll('#tableBody tr').forEach(tr=>{
+    const dateCell = tr.querySelector('.date-cell');
+    const dayCell = tr.querySelector('.day-cell');
+    const phCheckbox = tr.querySelector('.ph-cell input');
+    const claimSelect = tr.querySelector('.claim-cell select');
+    const timeInputs = tr.querySelectorAll('.time-cell input');
+    const totalInput = tr.querySelector('.total-cell input');
+    const remarksInput = tr.querySelector('.remarks-cell input');
+    rows.push({
+      date: dateCell ? dateCell.textContent : '',
+      day: dayCell ? dayCell.textContent : '',
+      ph: phCheckbox ? phCheckbox.checked : false,
+      claimType: claimSelect ? claimSelect.value : '',
+      from: timeInputs[0] ? timeInputs[0].value : '',
+      to: timeInputs[1] ? timeInputs[1].value : '',
+      totalHrs: totalInput ? totalInput.value : '',
+      remarks: remarksInput ? remarksInput.value : ''
+    });
+  });
+  return {
+    serial_no: document.getElementById('serialDisplay').textContent.trim(),
+    company_code: COMPANIES[document.getElementById('companySelect').value].code,
+    emp_name: document.getElementById('empName').value,
+    department: document.getElementById('department').value,
+    designation: document.getElementById('designation').value,
+    month: parseInt(document.getElementById('month').value, 10) || null,
+    year: parseInt(document.getElementById('year').value, 10) || null,
+    no_of_days: parseInt(document.getElementById('daysInMonth').value, 10) || null,
+    submission_date: document.getElementById('submissionDate').value || null,
+    working_hour_from: document.getElementById('whFrom').value,
+    working_hour_to: document.getElementById('whTo').value,
+    line_items: rows,
+    total_hours: parseFloat(document.getElementById('grandTotal').textContent) || 0,
+    status: status,
+    submitted_by: currentUser?.id
+  };
+}
+
+async function saveDraftToSupabase(){
+  if(!currentUser){ alert('Please sign in first.'); return; }
+  const payload = collectOtcfPayload('draft');
+  try{
+    let result;
+    if(currentDraftId){
+      result = await sb.from('otcf_submissions').update(payload).eq('id', currentDraftId).select().single();
+    } else {
+      result = await sb.from('otcf_submissions').insert(payload).select().single();
+    }
+    if(result.error){ alert('Failed to save draft: ' + result.error.message); return; }
+    currentDraftId = result.data.id;
+    alert('Draft saved to database.');
+  }catch(e){ console.error(e); alert('Failed to save draft: ' + e.message); }
+}
+
+async function submitClaim(){
+  if(!currentUser){ alert('Please sign in first.'); return; }
+  if(!confirm('Submit this claim for approval? You will not be able to edit it after submitting.')) return;
+  const payload = collectOtcfPayload('submitted');
+  try{
+    let result;
+    if(currentDraftId){
+      result = await sb.from('otcf_submissions').update(payload).eq('id', currentDraftId).select().single();
+    } else {
+      result = await sb.from('otcf_submissions').insert(payload).select().single();
+    }
+    if(result.error){ alert('Failed to submit: ' + result.error.message); return; }
+    currentDraftId = result.data.id;
+    alert('Claim submitted. Your approver has been notified by email.');
+    notifyEdgeFunction('submitted', currentDraftId);
+  }catch(e){ console.error(e); alert('Failed to submit: ' + e.message); }
+}
+
+async function notifyEdgeFunction(event, submissionId){
+  try{
+    await fetch(EDGE_FN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+SUPABASE_ANON_KEY },
+      body: JSON.stringify({ event, submission_id: submissionId })
+    });
+  }catch(e){ console.error('Notify edge function failed (non-fatal):', e); }
+}
+
+/* ---------- Approver panel ---------- */
+function generateApprovalToken(){
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let token = '';
+  for(let i=0;i<12;i++) token += chars[Math.floor(Math.random()*chars.length)];
+  return token;
+}
+async function renderApproverPanel(){
+  const { data, error } = await sb.from('otcf_submissions').select('*').eq('status','submitted').order('created_at');
+  const listEl = document.getElementById('approverList');
+  if(error){ listEl.innerHTML = '<div>Failed to load pending approvals.</div>'; return; }
+  if(!data || data.length===0){ listEl.innerHTML = '<div style="color:#888;font-size:13px;">No pending approvals.</div>'; return; }
+  listEl.innerHTML = data.map(sub=>`
+    <div class="approver-row">
+      <span>${escapeHtmlOtcf(sub.emp_name)} — ${escapeHtmlOtcf(sub.serial_no)} (${sub.total_hours} hrs)</span>
+      <button class="approve-btn" onclick="approveSubmission('${sub.id}')">Approve</button>
+    </div>`).join('');
+}
+function escapeHtmlOtcf(s){ return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+async function approveSubmission(id){
+  if(!confirm('Approve this overtime claim?')) return;
+  const token = generateApprovalToken();
+  const { error } = await sb.from('otcf_submissions').update({
+    status: 'approved',
+    approval_token: token,
+    approved_by: currentUser.id,
+    approved_by_name: currentProfile?.full_name || currentUser.email,
+    approved_at: new Date().toISOString()
+  }).eq('id', id);
+  if(error){ alert('Failed to approve: ' + error.message); return; }
+  alert('Claim approved.');
+  notifyEdgeFunction('approved', id);
+  await renderApproverPanel();
+}
+
+/* ---------- Pull approved data into the printable Approved By section ---------- */
+async function loadApprovedFieldsForPrint(){
+  if(!currentDraftId) return;
+  const { data } = await sb.from('otcf_submissions').select('status, approved_by_name, approval_token, approved_at').eq('id', currentDraftId).single();
+  if(data && data.status === 'approved'){
+    document.getElementById('approvedByName').value = data.approved_by_name || '';
+    document.getElementById('approvedToken').value = data.approval_token || '';
+    document.getElementById('approvedDate').value = data.approved_at ? data.approved_at.slice(0,10).split('-').reverse().join('/') : '';
+  }
+}
+
+onCompanyChange(); // set default logo + serial on load
+
 // ---------- Print / Share to PDF ----------
 function buildFileName(){
   const rawName = document.getElementById("empName").value;
@@ -829,7 +1139,8 @@ function removePrintBlanking(){
 window.addEventListener("beforeprint", applyPrintBlanking);
 window.addEventListener("afterprint", removePrintBlanking);
 
-document.getElementById("printBtn").addEventListener("click", ()=>{
+document.getElementById("printBtn").addEventListener("click", async ()=>{
+  await loadApprovedFieldsForPrint();
   const originalTitle = document.title;
   document.title = buildFileName().replace(".pdf", "");
   window.print();
@@ -838,6 +1149,7 @@ document.getElementById("printBtn").addEventListener("click", ()=>{
 
 document.getElementById("shareBtn").addEventListener("click", async ()=>{
   setStatus("Generating PDF...");
+  await loadApprovedFieldsForPrint();
   applyPrintBlanking(); // html2canvas captures the live DOM directly, so blanking must be applied manually here too
   try{
     const blob = await generatePDFBlob();
@@ -868,6 +1180,14 @@ document.getElementById("shareBtn").addEventListener("click", async ()=>{
   } finally{
     removePrintBlanking(); // always restore the live editing view, whether share succeeded or failed
   }
+});
+
+window.addEventListener('load', async ()=>{
+  sb.auth.onAuthStateChange((event, session)=>{
+    if(session) onAuthReady();
+  });
+  const { data: { session } } = await sb.auth.getSession();
+  if(session) await onAuthReady();
 });
 </script>
 </body>
