@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MEG-FORMS-OTCF v2026.07.29-22:00</title>
+<title>MEG-FORMS-OTCF v2026.07.29-22:30</title>
 <style>
   :root{
     --pink:#f7b8cc;
@@ -287,6 +287,27 @@
   .approver-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #eee;font-size:13px;}
   .approver-row:last-child{border-bottom:none;}
   .approve-btn{background:#2e8b57;color:#fff;border:none;padding:6px 14px;border-radius:5px;cursor:pointer;font-weight:600;font-size:12px;}
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);align-items:center;justify-content:center;z-index:3000;}
+  .modal-box{background:#fff;border-radius:10px;padding:20px;width:480px;max-height:78vh;overflow:auto;}
+  .modal-box h3{margin-top:0;color:var(--navy);}
+  .modal-close{float:right;cursor:pointer;font-weight:700;color:var(--muted);font-size:18px;line-height:1;}
+  .manage-tab-btn{padding:6px 14px;border:1px solid var(--navy);border-radius:6px;background:#fff;color:var(--navy);font-size:12px;font-weight:600;cursor:pointer;margin-right:6px;}
+  .manage-tab-btn.active,.manage-tab-btn:hover{background:var(--navy);color:#fff;}
+  .manage-list-item{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-bottom:1px solid var(--line);font-size:13px;}
+  .manage-list-item:last-child{border-bottom:none;}
+  .manage-delete-btn{border:none;background:none;color:#c0392b;cursor:pointer;font-size:16px;font-weight:700;padding:0 4px;line-height:1;flex:none;}
+  .manage-delete-btn:hover{color:#96281b;}
+  .manage-empty{color:var(--muted);font-size:13px;padding:10px;}
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);align-items:center;justify-content:center;z-index:3000;}
+  .modal-box{background:#fff;border-radius:10px;padding:20px;width:520px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;}
+  .modal-box h3{margin:0;color:var(--navy);}
+  .modal-close{cursor:pointer;font-weight:700;color:#6b7280;font-size:18px;line-height:1;}
+  .manage-tab-btn{padding:6px 14px;border:1px solid var(--navy);border-radius:6px;background:#fff;color:var(--navy);font-size:12px;font-weight:600;cursor:pointer;}
+  .manage-tab-btn.active,.manage-tab-btn:hover{background:var(--navy);color:#fff;}
+  .manage-list-item{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-bottom:1px solid #eee;font-size:13px;}
+  .manage-list-item:last-child{border-bottom:none;}
+  .manage-delete-btn{border:none;background:none;color:#c0392b;cursor:pointer;font-size:16px;font-weight:700;padding:0 4px;}
+  .manage-empty{color:#888;font-size:13px;padding:10px;}
   }
   .toolbar{
     background:var(--navy);
@@ -404,6 +425,8 @@
   <button onclick="saveDraftToSupabase()">💾 Save Draft</button>
   <button class="btn-submit" onclick="submitClaim()">✅ Submit Claim</button>
   <button onclick="notYetWired('Backup to Drive')">⬆️ Backup to Drive</button>
+  <button id="btnManageLists" onclick="openManageModal()" style="display:none">📋 Manage Lists</button>
+  <button id="btnManageLists" onclick="openManageModal()" style="display:none">📋 Manage Lists</button>
   <button class="btn-print" id="printBtn">🖨️ Print / Save PDF</button>
   <button class="btn-share" id="shareBtn">📤 Share to WhatsApp</button>
 </div>
@@ -413,8 +436,40 @@
   <div id="approverList"></div>
 </div>
 
+<div class="modal-overlay" id="manageListsModal">
+  <div class="modal-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <h3 style="margin:0;">📋 Manage Lists</h3>
+      <span class="modal-close" onclick="closeManageModal()">✕</span>
+    </div>
+    <div style="margin-bottom:12px;">
+      <button class="manage-tab-btn active" onclick="showManageTab('empName')">👤 Staff</button>
+      <button class="manage-tab-btn" onclick="showManageTab('department')">🏢 Departments</button>
+      <button class="manage-tab-btn" onclick="showManageTab('designation')">🏷️ Designations</button>
+      <button class="manage-tab-btn" onclick="showManageTab('users')">👥 Users</button>
+    </div>
+    <div id="manageListContent" style="overflow-y:auto;"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="manageListsModal">
+  <div class="modal-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <h3>📋 Manage Lists</h3>
+      <span class="modal-close" onclick="closeManageModal()">✕</span>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;">
+      <button class="manage-tab-btn active" onclick="showManageTab('empName')">👤 Staff</button>
+      <button class="manage-tab-btn" onclick="showManageTab('department')">🏢 Departments</button>
+      <button class="manage-tab-btn" onclick="showManageTab('designation')">🏷️ Designations</button>
+      <button class="manage-tab-btn" onclick="showManageTab('users')">👥 Users</button>
+    </div>
+    <div id="manageListContent" style="overflow-y:auto;flex:1;"></div>
+  </div>
+</div>
+
 <div class="sheet">
-  <div class="version">OTCF v.2026.07.03-23:15 &nbsp;|&nbsp; MEG-FORMS-OTCF v2026.07.29-22:00</div>
+  <div class="version">OTCF v.2026.07.03-23:15 &nbsp;|&nbsp; MEG-FORMS-OTCF v2026.07.29-22:30</div>
 
   <div class="form-header">
     <div class="logo-box"><img id="companyLogo" src="" alt="logo"></div>
@@ -934,6 +989,10 @@ async function onAuthReady(){
     document.getElementById('approverPanel').style.display = 'block';
     await renderApproverPanel();
   }
+
+  if(currentPerm.is_admin){
+    document.getElementById('btnManageLists').style.display = 'inline-block';
+  }
 }
 
 /* ---------- Shared dropdown lists synced with Supabase ---------- */
@@ -1061,6 +1120,190 @@ function generateApprovalToken(){
   for(let i=0;i<12;i++) token += chars[Math.floor(Math.random()*chars.length)];
   return token;
 }
+/* ---------- Manage Lists (admin only) ---------- */
+const OTCF_ESCAPE_MAP = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'};
+function escOtcf(s){ return (s||'').replace(/[&<>"']/g, c=>OTCF_ESCAPE_MAP[c]); }
+
+let currentManageTab = 'empName';
+function openManageModal(){
+  document.getElementById('manageListsModal').style.display = 'flex';
+  showManageTab('empName');
+}
+function closeManageModal(){
+  document.getElementById('manageListsModal').style.display = 'none';
+}
+function showManageTab(tab){
+  currentManageTab = tab;
+  const order = ['empName','department','designation','users'];
+  document.querySelectorAll('.manage-tab-btn').forEach((btn,i)=>{
+    btn.classList.toggle('active', order[i]===tab);
+  });
+  if(tab==='users'){ renderUsersManageTab(); return; }
+  renderListManageTab(tab);
+}
+function renderListManageTab(selectId){
+  const def = DROPDOWN_DEFS[selectId];
+  const list = loadList(def.storeKey, def.seed).slice().sort((a,b)=>a.localeCompare(b,'en',{sensitivity:'base'}));
+  const cont = document.getElementById('manageListContent');
+  if(list.length===0){ cont.innerHTML = '<div class="manage-empty">No items in this list yet.</div>'; return; }
+  cont.innerHTML = list.map(name=>`
+    <div class="manage-list-item">
+      <span>${escOtcf(name)}</span>
+      <button class="manage-delete-btn" onclick="deleteOtcfListItem('${selectId}','${escOtcf(name).replace(/'/g,"\\'")}')">✕</button>
+    </div>`).join('');
+}
+async function deleteOtcfListItem(selectId, val){
+  if(!confirm(`Delete "${val}" from this list? This cannot be undone.`)) return;
+  const def = DROPDOWN_DEFS[selectId];
+  let list = loadList(def.storeKey, def.seed).filter(n=>n!==val);
+  saveList(def.storeKey, list);
+  populateDropdown(selectId);
+  const table = OTCF_TABLE_MAP[selectId];
+  if(table){
+    try{ await sb.from(table).delete().eq('name', val); }
+    catch(e){ console.error('Failed to delete from '+table, e); }
+  }
+  renderListManageTab(selectId);
+}
+async function renderUsersManageTab(){
+  const cont = document.getElementById('manageListContent');
+  cont.innerHTML = '<div class="manage-empty">Loading users...</div>';
+  try{
+    const { data: profiles } = await sb.from('profiles').select('*').order('full_name');
+    const { data: perms } = await sb.from('form_permissions').select('*').eq('form_code', FORM_CODE);
+    const permMap = {};
+    (perms||[]).forEach(p=>{ permMap[p.user_id] = p; });
+    if(!profiles || profiles.length===0){ cont.innerHTML = '<div class="manage-empty">No users found.</div>'; return; }
+    cont.innerHTML = profiles.map(p=>{
+      const perm = permMap[p.id] || { can_submit:false, can_approve:false, is_admin:false };
+      return `
+        <div class="manage-list-item" style="flex-direction:column;align-items:flex-start;gap:4px;">
+          <div style="font-weight:600;">${escOtcf(p.full_name)} <span style="color:#888;font-weight:400;">(${escOtcf(p.status)})</span></div>
+          <div style="display:flex;gap:12px;font-size:12px;">
+            <label><input type="checkbox" ${perm.can_submit?'checked':''} onchange="updateOtcfPermission('${p.id}','can_submit',this.checked)"> Can Submit</label>
+            <label><input type="checkbox" ${perm.can_approve?'checked':''} onchange="updateOtcfPermission('${p.id}','can_approve',this.checked)"> Can Approve</label>
+            <label><input type="checkbox" ${perm.is_admin?'checked':''} onchange="updateOtcfPermission('${p.id}','is_admin',this.checked)"> Admin</label>
+          </div>
+        </div>`;
+    }).join('');
+  }catch(e){
+    console.error(e);
+    cont.innerHTML = '<div class="manage-empty">Failed to load users.</div>';
+  }
+}
+async function updateOtcfPermission(userId, field, value){
+  try{
+    const { data: existing } = await sb.from('form_permissions').select('*')
+      .eq('user_id', userId).eq('form_code', FORM_CODE).maybeSingle();
+    if(existing){
+      await sb.from('form_permissions').update({ [field]: value }).eq('id', existing.id);
+    } else {
+      await sb.from('form_permissions').insert({
+        user_id: userId, form_code: FORM_CODE,
+        can_submit: field==='can_submit'?value:false,
+        can_approve: field==='can_approve'?value:false,
+        is_admin: field==='is_admin'?value:false
+      });
+    }
+    if(value){
+      await sb.from('profiles').update({ status:'active' }).eq('id', userId).eq('status','pending');
+    }
+    await renderUsersManageTab();
+  }catch(e){
+    console.error('Failed to update permission', e);
+    alert('Failed to update permission: ' + e.message);
+  }
+}
+
+/* ---------- Manage Lists (admin only) ---------- */
+let currentManageKey = 'empName';
+function openManageModal(){
+  document.getElementById('manageListsModal').style.display = 'flex';
+  showManageTab('empName');
+}
+function closeManageModal(){
+  document.getElementById('manageListsModal').style.display = 'none';
+}
+function showManageTab(key){
+  currentManageKey = key;
+  const tabMap = { empName:0, department:1, designation:2, users:3 };
+  document.querySelectorAll('.manage-tab-btn').forEach((btn,i)=>{
+    btn.classList.toggle('active', i===tabMap[key]);
+  });
+  if(key==='users'){ renderUsersManageTab(); return; }
+  renderManageList(key);
+}
+function renderManageList(selectId){
+  const def = DROPDOWN_DEFS[selectId];
+  const list = loadList(def.storeKey, def.seed).slice().sort((a,b)=>a.localeCompare(b,'en',{sensitivity:'base'}));
+  const cont = document.getElementById('manageListContent');
+  if(list.length===0){ cont.innerHTML = '<div class="manage-empty">No items in this list yet.</div>'; return; }
+  cont.innerHTML = list.map(name=>`
+    <div class="manage-list-item">
+      <span>${escapeHtmlOtcf(name)}</span>
+      <button class="manage-delete-btn" title="Delete" onclick="deleteOtcfListItem('${selectId}', ${JSON.stringify(name)})">✕</button>
+    </div>`).join('');
+}
+async function deleteOtcfListItem(selectId, val){
+  if(!confirm(`Delete "${val}" from this list? This cannot be undone.`)) return;
+  const def = DROPDOWN_DEFS[selectId];
+  let list = loadList(def.storeKey, def.seed).filter(n=>n!==val);
+  saveList(def.storeKey, list);
+  populateDropdown(selectId);
+  const table = OTCF_TABLE_MAP[selectId];
+  if(table){
+    try{ await sb.from(table).delete().eq('name', val); }
+    catch(e){ console.error('Failed to delete from '+table, e); }
+  }
+  renderManageList(selectId);
+}
+async function renderUsersManageTab(){
+  const cont = document.getElementById('manageListContent');
+  cont.innerHTML = '<div class="manage-empty">Loading users...</div>';
+  try{
+    const { data: profiles } = await sb.from('profiles').select('*').order('full_name');
+    const { data: perms } = await sb.from('form_permissions').select('*').eq('form_code', FORM_CODE);
+    const permMap = {};
+    (perms||[]).forEach(p=>{ permMap[p.user_id] = p; });
+    if(!profiles || profiles.length===0){ cont.innerHTML = '<div class="manage-empty">No users found.</div>'; return; }
+    cont.innerHTML = profiles.map(p=>{
+      const perm = permMap[p.id] || { can_submit:false, can_approve:false, is_admin:false };
+      return `
+        <div class="manage-list-item" style="flex-direction:column;align-items:flex-start;gap:4px;">
+          <div style="font-weight:600;">${escapeHtmlOtcf(p.full_name)} <span style="color:var(--muted);font-weight:400;">(${escapeHtmlOtcf(p.status)})</span></div>
+          <div style="display:flex;gap:12px;font-size:12px;">
+            <label><input type="checkbox" ${perm.can_submit?'checked':''} onchange="updateOtcfUserPermission('${p.id}','can_submit',this.checked)"> Can Submit</label>
+            <label><input type="checkbox" ${perm.can_approve?'checked':''} onchange="updateOtcfUserPermission('${p.id}','can_approve',this.checked)"> Can Approve</label>
+            <label><input type="checkbox" ${perm.is_admin?'checked':''} onchange="updateOtcfUserPermission('${p.id}','is_admin',this.checked)"> Admin</label>
+          </div>
+        </div>`;
+    }).join('');
+  }catch(e){ console.error(e); cont.innerHTML = '<div class="manage-empty">Failed to load users.</div>'; }
+}
+async function updateOtcfUserPermission(userId, field, value){
+  try{
+    const { data: existing } = await sb.from('form_permissions').select('*')
+      .eq('user_id', userId).eq('form_code', FORM_CODE).maybeSingle();
+    if(existing){
+      await sb.from('form_permissions').update({ [field]: value }).eq('id', existing.id);
+    } else {
+      await sb.from('form_permissions').insert({
+        user_id: userId, form_code: FORM_CODE,
+        can_submit: field==='can_submit'?value:false,
+        can_approve: field==='can_approve'?value:false,
+        is_admin: field==='is_admin'?value:false
+      });
+    }
+    if(value){
+      await sb.from('profiles').update({ status:'active' }).eq('id', userId).eq('status','pending');
+    }
+    await renderUsersManageTab();
+  }catch(e){
+    console.error('Failed to update permission', e);
+    alert('Failed to update permission: ' + e.message);
+  }
+}
+
 async function renderApproverPanel(){
   const { data, error } = await sb.from('otcf_submissions').select('*').eq('status','submitted').order('created_at');
   const listEl = document.getElementById('approverList');
