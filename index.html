@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MEG-FORMS-OTCF v2026.07.29-21:00</title>
+<title>MEG-FORMS-OTCF v2026.07.29-21:30</title>
 <style>
   :root{
     --pink:#f7b8cc;
@@ -356,6 +356,14 @@
 <body>
 
 <div id="authOverlay">
+  <div class="auth-box" id="authBoxScriptError" style="display:none;text-align:center;">
+    <h2 style="color:#c0392b;">Connection Problem</h2>
+    <div class="auth-sub">
+      This page couldn't load a required script (likely blocked by your network,
+      an ad-blocker, or a connectivity issue). Please check your internet connection
+      and refresh the page. If this keeps happening, contact your admin.
+    </div>
+  </div>
   <div class="auth-box" id="authBoxLogin">
     <h2>MEG-FORMS Login</h2>
     <div class="auth-sub">Sign in to access the Overtime Claim Form (OTCF)</div>
@@ -405,7 +413,7 @@
 </div>
 
 <div class="sheet">
-  <div class="version">OTCF v.2026.07.03-23:15 &nbsp;|&nbsp; MEG-FORMS-OTCF v2026.07.29-21:00</div>
+  <div class="version">OTCF v.2026.07.03-23:15 &nbsp;|&nbsp; MEG-FORMS-OTCF v2026.07.29-21:30</div>
 
   <div class="form-header">
     <div class="logo-box"><img id="companyLogo" src="" alt="logo"></div>
@@ -831,7 +839,22 @@ onCompanyChange(); // set default logo + serial on load
 /* ===================== SUPABASE / AUTH / SUBMISSIONS ===================== */
 const SUPABASE_URL = "https://vzngfswtofegimfcoigx.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ6bmdmc3d0b2ZlZ2ltZmNvaWd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyODA5MzUsImV4cCI6MjEwMDg1NjkzNX0.47rTrOjzNgxarCBYGapqajLw5v_yATbeKitiyP6a2Sg";
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let sb = null;
+try{
+  if(!window.supabase) throw new Error("Supabase SDK failed to load");
+  sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}catch(e){
+  console.error("Failed to initialize Supabase client:", e);
+  document.addEventListener('DOMContentLoaded', showScriptErrorFallback);
+  if(document.readyState !== 'loading') showScriptErrorFallback();
+}
+function showScriptErrorFallback(){
+  document.getElementById('authBoxLogin').style.display = 'none';
+  document.getElementById('authBoxSignup').style.display = 'none';
+  document.getElementById('authBoxPending').style.display = 'none';
+  document.getElementById('authBoxScriptError').style.display = 'block';
+  document.getElementById('authOverlay').style.display = 'flex';
+}
 const FORM_CODE = "otcf";
 const EDGE_FN_URL = SUPABASE_URL + "/functions/v1/otcf-notify";
 
@@ -1183,6 +1206,7 @@ document.getElementById("shareBtn").addEventListener("click", async ()=>{
 });
 
 window.addEventListener('load', async ()=>{
+  if(!sb){ showScriptErrorFallback(); return; } // Supabase SDK never loaded — don't attempt auth calls
   sb.auth.onAuthStateChange((event, session)=>{
     if(session) onAuthReady();
   });
