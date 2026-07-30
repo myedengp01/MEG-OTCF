@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MEG-FORMS-OTCF v2026.07.30-07:30</title>
+<title>MEG-FORMS-OTCF v2026.07.30-11:00</title>
 <style>
   :root{
     --pink:#f7b8cc;
@@ -280,6 +280,15 @@
   .auth-toggle a{color:var(--navy);cursor:pointer;font-weight:600;text-decoration:none;}
   .auth-error{color:#c0392b;font-size:12px;margin-bottom:8px;min-height:16px;}
   .auth-pending-box{text-align:center;}
+  .pw-wrap{position:relative;}
+  .pw-wrap input{padding-right:36px !important;}
+  .pw-toggle{
+    position:absolute;right:10px;top:50%;transform:translateY(-50%);
+    cursor:pointer;font-size:15px;color:var(--muted);user-select:none;
+    background:none;border:none;padding:0;
+  }
+  .auth-forgot{text-align:right;font-size:11.5px;margin:-4px 0 10px;}
+  .auth-forgot a{color:var(--navy);cursor:pointer;text-decoration:none;}
   #topUserBar{display:none;align-items:center;gap:10px;background:#eef1f5;padding:6px 14px;font-size:12px;color:var(--muted);max-width:980px;margin:0 auto 10px;border-radius:6px;}
   #topUserBar button{font-size:11px;padding:3px 9px;border-radius:5px;border:1px solid var(--line);background:#fff;cursor:pointer;}
   .approver-panel{max-width:980px;margin:0 auto 16px;background:#fff8e1;border:1px solid #e6d28a;border-radius:8px;padding:14px 18px;}
@@ -390,7 +399,11 @@
     <div class="auth-sub">Sign in to access the Overtime Claim Form (OTCF)</div>
     <div class="auth-error" id="loginError"></div>
     <input type="email" id="loginEmail" placeholder="Email">
-    <input type="password" id="loginPassword" placeholder="Password">
+    <div class="pw-wrap">
+      <input type="password" id="loginPassword" placeholder="Password">
+      <button type="button" class="pw-toggle" onclick="togglePwVisibility('loginPassword', this)">👁</button>
+    </div>
+    <div class="auth-forgot"><a onclick="showAuthBox('forgot')">Forgot password?</a></div>
     <button class="auth-submit" onclick="doSignIn()">Sign In</button>
     <div class="auth-toggle">No account yet? <a onclick="showAuthBox('signup')">Sign up</a></div>
   </div>
@@ -400,7 +413,10 @@
     <div class="auth-error" id="signupError"></div>
     <input type="text" id="signupName" placeholder="Full Name">
     <input type="email" id="signupEmail" placeholder="Email">
-    <input type="password" id="signupPassword" placeholder="Password (min 6 characters)">
+    <div class="pw-wrap">
+      <input type="password" id="signupPassword" placeholder="Password (min 6 characters)">
+      <button type="button" class="pw-toggle" onclick="togglePwVisibility('signupPassword', this)">👁</button>
+    </div>
     <button class="auth-submit" onclick="doSignUp()">Sign Up</button>
     <div class="auth-toggle">Already have an account? <a onclick="showAuthBox('login')">Sign in</a></div>
   </div>
@@ -408,6 +424,26 @@
     <h2>Awaiting Approval</h2>
     <div class="auth-sub">You're signed in, but don't have access to OTCF yet. Please ask an admin to grant you access.</div>
     <button class="auth-submit" style="background:#6b7280;margin-top:16px;" onclick="doSignOut()">Sign Out</button>
+  </div>
+
+  <div class="auth-box" id="authBoxForgot" style="display:none;">
+    <h2>Reset Password</h2>
+    <div class="auth-sub">Enter your email — we'll send you a reset link</div>
+    <div class="auth-error" id="forgotError"></div>
+    <input type="email" id="forgotEmail" placeholder="Email">
+    <button class="auth-submit" onclick="doForgotPassword()">Send Reset Link</button>
+    <div class="auth-toggle"><a onclick="showAuthBox('login')">Back to Sign In</a></div>
+  </div>
+
+  <div class="auth-box" id="authBoxNewPassword" style="display:none;">
+    <h2>Set New Password</h2>
+    <div class="auth-sub">Enter a new password for your account</div>
+    <div class="auth-error" id="newPasswordError"></div>
+    <div class="pw-wrap">
+      <input type="password" id="newPasswordInput" placeholder="New password (min 6 characters)">
+      <button type="button" class="pw-toggle" onclick="togglePwVisibility('newPasswordInput', this)">👁</button>
+    </div>
+    <button class="auth-submit" onclick="doSetNewPassword()">Update Password</button>
   </div>
 </div>
 
@@ -468,7 +504,7 @@
 </div>
 
 <div class="sheet">
-  <div class="version">OTCF v.2026.07.03-23:15 &nbsp;|&nbsp; MEG-FORMS-OTCF v2026.07.30-07:30</div>
+  <div class="version">OTCF v.2026.07.03-23:15 &nbsp;|&nbsp; MEG-FORMS-OTCF v2026.07.30-11:00</div>
 
   <div class="form-header">
     <div class="logo-box"><img id="companyLogo" src="" alt="logo"></div>
@@ -919,8 +955,54 @@ function showAuthBox(which){
   document.getElementById('authBoxLogin').style.display = which==='login' ? 'block':'none';
   document.getElementById('authBoxSignup').style.display = which==='signup' ? 'block':'none';
   document.getElementById('authBoxPending').style.display = which==='pending' ? 'block':'none';
+  document.getElementById('authBoxForgot').style.display = which==='forgot' ? 'block':'none';
+  document.getElementById('authBoxNewPassword').style.display = which==='newpassword' ? 'block':'none';
   document.getElementById('loginError').textContent = '';
   document.getElementById('signupError').textContent = '';
+  const fe = document.getElementById('forgotError'); if(fe) fe.textContent = '';
+  const ne = document.getElementById('newPasswordError'); if(ne) ne.textContent = '';
+}
+
+function togglePwVisibility(inputId, btn){
+  const input = document.getElementById(inputId);
+  const showing = input.type === 'text';
+  input.type = showing ? 'password' : 'text';
+  btn.textContent = showing ? '👁' : '🙈';
+}
+
+function clearAuthFields(){
+  ['loginEmail','loginPassword','signupName','signupEmail','signupPassword','forgotEmail','newPasswordInput'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.value = '';
+  });
+  document.querySelectorAll('.pw-wrap input[type="text"]').forEach(inp=>{ inp.type = 'password'; });
+  document.querySelectorAll('.pw-toggle').forEach(btn=>{ btn.textContent = '👁'; });
+}
+
+async function doForgotPassword(){
+  const email = document.getElementById('forgotEmail').value.trim();
+  const errEl = document.getElementById('forgotError');
+  errEl.textContent = '';
+  if(!email){ errEl.textContent = 'Enter your email.'; return; }
+  const { error } = await sb.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin + window.location.pathname
+  });
+  if(error){ errEl.textContent = error.message; return; }
+  alert('If an account exists for that email, a reset link has been sent. Check your inbox (and spam folder).');
+  showAuthBox('login');
+}
+
+async function doSetNewPassword(){
+  const pw = document.getElementById('newPasswordInput').value;
+  const errEl = document.getElementById('newPasswordError');
+  errEl.textContent = '';
+  if(!pw || pw.length < 6){ errEl.textContent = 'Password must be at least 6 characters.'; return; }
+  const { error } = await sb.auth.updateUser({ password: pw });
+  if(error){ errEl.textContent = error.message; return; }
+  alert('Password updated. Please sign in with your new password.');
+  await sb.auth.signOut();
+  clearAuthFields();
+  showAuthBox('login');
 }
 async function doSignIn(){
   const email = document.getElementById('loginEmail').value.trim();
@@ -950,8 +1032,7 @@ async function doSignOut(){
   document.getElementById('authOverlay').style.display = 'flex';
   document.getElementById('topUserBar').style.display = 'none';
   document.getElementById('approverPanel').style.display = 'none';
-  document.getElementById('loginEmail').value = '';
-  document.getElementById('loginPassword').value = '';
+  clearAuthFields();
   showAuthBox('login');
 }
 async function onAuthReady(){
@@ -1451,6 +1532,12 @@ document.getElementById("shareBtn").addEventListener("click", async ()=>{
 window.addEventListener('load', async ()=>{
   if(!sb){ showScriptErrorFallback(); return; } // Supabase SDK never loaded — don't attempt auth calls
   sb.auth.onAuthStateChange((event, session)=>{
+    if(event === 'PASSWORD_RECOVERY'){
+      document.getElementById('authOverlay').style.display = 'flex';
+      document.getElementById('topUserBar').style.display = 'none';
+      showAuthBox('newpassword');
+      return;
+    }
     if(session) onAuthReady();
   });
   const { data: { session } } = await sb.auth.getSession();
