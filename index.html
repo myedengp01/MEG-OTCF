@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MEG-FORMS-OTCF v2026.07.30-11:00</title>
+<title>MEG-FORMS-OTCF v2026.07.30-18:00</title>
 <style>
   :root{
     --pink:#f7b8cc;
@@ -504,7 +504,7 @@
 </div>
 
 <div class="sheet">
-  <div class="version">OTCF v.2026.07.03-23:15 &nbsp;|&nbsp; MEG-FORMS-OTCF v2026.07.30-11:00</div>
+  <div class="version">OTCF v.2026.07.03-23:15 &nbsp;|&nbsp; MEG-FORMS-OTCF v2026.07.30-18:00</div>
 
   <div class="form-header">
     <div class="logo-box"><img id="companyLogo" src="" alt="logo"></div>
@@ -1169,6 +1169,7 @@ async function submitClaim(){
   if(!currentUser){ alert('Please sign in first.'); return; }
   if(!confirm('Submit this claim for approval? You will not be able to edit it after submitting.')) return;
   const payload = collectOtcfPayload('submitted');
+  payload.submitted_at = new Date().toISOString();
   try{
     let result;
     if(currentDraftId){
