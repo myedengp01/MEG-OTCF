@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MEG-OTCF v2026.08.01-18:00</title>
+<title>MEG-OTCF v2026.08.01-19:00</title>
 <style>
   :root{
     --pink:#f7b8cc;
@@ -68,6 +68,13 @@
     border-bottom:1px solid #333;
     background:transparent;
   }
+  .field-value{
+    display:inline-block;
+    flex:1;
+    font-size:14px;
+    padding:5px 6px;
+    border-bottom:1px solid #333;
+  }
   .field input:focus, .field select:focus{
     outline:none;
     border-bottom:2px solid #333;
@@ -102,6 +109,63 @@
     align-items:center;
     flex-wrap:wrap;
     font-size:13px;
+  }
+  .viewer-filters{
+    background:#f4f6f9;
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:12px 14px;
+    display:flex;
+    gap:18px;
+    align-items:flex-end;
+    flex-wrap:wrap;
+  }
+  .viewer-filters .field{
+    flex:none;
+    display:flex;
+    flex-direction:column;
+    align-items:flex-start;
+    gap:3px;
+  }
+  .viewer-filters .field label{
+    font-size:11px;
+    color:var(--muted);
+    min-width:0;
+  }
+  .viewer-filters .field select, .viewer-filters .field input{
+    padding:5px 8px;
+    font-size:13px;
+    border:1px solid var(--line);
+    border-radius:5px;
+    background:#fff;
+    min-width:140px;
+  }
+  .viewer-claim-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:10px;
+    padding:12px 14px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    margin-bottom:8px;
+    background:#fff;
+  }
+  .viewer-claim-info{font-size:13px;}
+  .viewer-claim-info .name{font-weight:700;color:var(--navy);}
+  .viewer-claim-info .meta{color:var(--muted);font-size:12px;}
+  .viewer-claim-actions{display:flex;gap:8px;}
+  .viewer-claim-actions a, .viewer-claim-actions span{
+    padding:6px 14px;
+    border-radius:6px;
+    border:1px solid var(--navy);
+    background:#fff;
+    color:var(--navy);
+    font-weight:600;
+    font-size:12.5px;
+    cursor:pointer;
+    text-decoration:none;
   }
   .sync-control{
     display:flex;
@@ -144,6 +208,16 @@
     border-collapse:collapse;
     margin-top:8px;
     font-size:13px;
+  }
+  .table-wrap{
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+  @media (max-width:600px){
+    body{ padding:8px; }
+    .sheet{ padding:12px; }
+    .header-grid{ grid-template-columns:1fr; }
+    .working-hours{ gap:10px; }
   }
   th, td{
     border:1px solid var(--border);
@@ -308,12 +382,12 @@
     .form-header{border-bottom:2px solid #1c3d6e;padding-bottom:6px;margin-bottom:6px;}
     .logo-box{width:50px;height:50px;}
     .company-name{font-size:14px;}
-    .form-title{font-size:9px;
+    .form-title{font-size:9px;}
     .serial-box{font-size:9px;min-width:0;}
     .serial-display{font-size:10px;}
     .print-empty{visibility:hidden;}
+    .table-wrap{overflow:visible;}
   }
-  } /* <-- was missing: this properly closes @media print */
   #authOverlay{
     position:fixed;inset:0;background:#eef1f5;z-index:2000;
     display:flex;align-items:center;justify-content:center;
@@ -346,6 +420,15 @@
   .approver-row{cursor:pointer;}
   .approver-row:hover{background:#fdf3d0;}
   .view-btn{background:var(--navy);color:#fff;border:none;padding:6px 14px;border-radius:5px;cursor:pointer;font-weight:600;font-size:12px;}
+  .disapprove-btn{background:#c0392b;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;}
+  .reason-box{margin-top:10px;padding:12px;background:#fdf2f2;border:1px solid #f0c2c2;border-radius:8px;}
+  .reason-box label{font-weight:600;font-size:12.5px;display:block;margin-bottom:6px;color:#8a2f26;}
+  .reason-box textarea{width:100%;min-height:70px;padding:8px;border:1px solid var(--line);border-radius:6px;font-size:13px;font-family:inherit;box-sizing:border-box;resize:vertical;}
+  .reason-box .reason-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:8px;}
+  .reason-cancel-btn{padding:7px 14px;border-radius:6px;border:1px solid var(--line);background:#fff;color:var(--muted);font-weight:600;font-size:12.5px;cursor:pointer;}
+  .pdf-actions{margin-top:12px;padding-top:12px;border-top:1px solid var(--line);display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  .pdf-actions button{padding:7px 14px;border-radius:6px;border:1px solid var(--navy);background:#fff;color:var(--navy);font-weight:600;font-size:12.5px;cursor:pointer;}
+  .pdf-actions .pdf-note{font-size:11.5px;color:var(--muted);flex-basis:100%;}
   .review-meta{display:grid;grid-template-columns:repeat(3,1fr);gap:6px 18px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--line);}
   .review-meta div{font-size:12.5px;}
   .review-meta b{display:block;color:var(--muted);font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;margin-bottom:1px;}
@@ -356,17 +439,6 @@
   .review-table tr.weekend-row{background:#f6f6f6;}
   .review-table td.remarks-col{text-align:left;}
   .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);align-items:center;justify-content:center;z-index:3000;}
-  .modal-box{background:#fff;border-radius:10px;padding:20px;width:480px;max-height:78vh;overflow:auto;}
-  .modal-box h3{margin-top:0;color:var(--navy);}
-  .modal-close{float:right;cursor:pointer;font-weight:700;color:var(--muted);font-size:18px;line-height:1;}
-  .manage-tab-btn{padding:6px 14px;border:1px solid var(--navy);border-radius:6px;background:#fff;color:var(--navy);font-size:12px;font-weight:600;cursor:pointer;margin-right:6px;}
-  .manage-tab-btn.active,.manage-tab-btn:hover{background:var(--navy);color:#fff;}
-  .manage-list-item{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-bottom:1px solid var(--line);font-size:13px;}
-  .manage-list-item:last-child{border-bottom:none;}
-  .manage-delete-btn{border:none;background:none;color:#c0392b;cursor:pointer;font-size:16px;font-weight:700;padding:0 4px;line-height:1;flex:none;}
-  .manage-delete-btn:hover{color:#96281b;}
-  .manage-empty{color:var(--muted);font-size:13px;padding:10px;}
-  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);align-items:center;justify-content:center;z-index:3000;}
   .modal-box{background:#fff;border-radius:10px;padding:20px;width:520px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;}
   .modal-box h3{margin:0;color:var(--navy);}
   .modal-close{cursor:pointer;font-weight:700;color:#6b7280;font-size:18px;line-height:1;}
@@ -375,6 +447,7 @@
   .manage-list-item{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-bottom:1px solid #eee;font-size:13px;}
   .manage-list-item:last-child{border-bottom:none;}
   .manage-delete-btn{border:none;background:none;color:#c0392b;cursor:pointer;font-size:16px;font-weight:700;padding:0 4px;}
+  .manage-delete-btn:hover{color:#96281b;}
   .manage-empty{color:#888;font-size:13px;padding:10px;}
   .toolbar{
     background:var(--navy);
@@ -506,7 +579,7 @@
   </div>
 </div>
 
-<div id="topUserBar">
+<div id="topUserBar" class="no-print">
   <span id="topUserLabel"></span>
   <span style="flex:1"></span>
   <button onclick="doSignOut()">Sign Out</button>
@@ -520,7 +593,7 @@
   <button class="btn-submit" onclick="submitClaim()">✅ Submit Claim</button>
   <button onclick="notYetWired('Backup to Drive')">⬆️ Backup to Drive</button>
   <button id="btnManageLists" onclick="openManageModal()" style="display:none">📋 Manage Lists</button>
-  <button id="btnManageLists" onclick="openManageModal()" style="display:none">📋 Manage Lists</button>
+  <button id="btnViewerScreen" onclick="openViewerScreenFromToolbar()" style="display:none">📋 Approved Claims</button>
   <button class="btn-print" id="printBtn">🖨️ Print / Save PDF</button>
   <button class="btn-share" id="shareBtn">📤 Share to WhatsApp</button>
 </div>
@@ -537,26 +610,27 @@
       <span class="modal-close" onclick="closeApprovalReviewModal()">✕</span>
     </div>
     <div id="approvalReviewContent" style="overflow-y:auto;flex:1;font-size:13px;"></div>
-    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;flex:none;">
+
+    <div id="approvalReviewReasonBox" class="reason-box" style="display:none;">
+      <label for="approvalReviewReasonText">Reason for disapproval (required)</label>
+      <textarea id="approvalReviewReasonText" placeholder="Explain why this claim is being disapproved..."></textarea>
+      <div class="reason-actions">
+        <button class="reason-cancel-btn" onclick="cancelDisapprove()">Cancel</button>
+        <button class="disapprove-btn" onclick="confirmDisapprove()">Confirm Disapproval</button>
+      </div>
+    </div>
+
+    <div id="approvalReviewPdfActions" class="pdf-actions" style="display:none;">
+      <span class="pdf-note" id="approvalReviewPdfNote"></span>
+      <button id="approvalReviewSavePdfBtn">💾 Save PDF</button>
+      <button id="approvalReviewSharePdfBtn">📤 Share</button>
+    </div>
+
+    <div id="approvalReviewFooterButtons" style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;flex:none;">
       <button onclick="closeApprovalReviewModal()" style="padding:8px 16px;border-radius:6px;border:1px solid var(--line);background:#fff;cursor:pointer;font-size:13px;">Close</button>
+      <button class="disapprove-btn" id="approvalReviewDisapproveBtn" style="padding:8px 16px;font-size:13px;">❌ Disapprove</button>
       <button class="approve-btn" id="approvalReviewApproveBtn" style="padding:8px 16px;font-size:13px;">✅ Approve This Claim</button>
     </div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="manageListsModal">
-  <div class="modal-box">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-      <h3 style="margin:0;">📋 Manage Lists</h3>
-      <span class="modal-close" onclick="closeManageModal()">✕</span>
-    </div>
-    <div style="margin-bottom:12px;">
-      <button class="manage-tab-btn active" onclick="showManageTab('empName')">👤 Staff</button>
-      <button class="manage-tab-btn" onclick="showManageTab('department')">🏢 Departments</button>
-      <button class="manage-tab-btn" onclick="showManageTab('designation')">🏷️ Designations</button>
-      <button class="manage-tab-btn" onclick="showManageTab('users')">👥 Users</button>
-    </div>
-    <div id="manageListContent" style="overflow-y:auto;"></div>
   </div>
 </div>
 
@@ -576,8 +650,7 @@
   </div>
 </div>
 
-<div class="sheet">
-  <div class="version">MEG-OTCF v2026.08.01-18:00</div>
+<div class="sheet" id="mainFormSheet">
 
   <div class="form-header">
     <div class="logo-box"><img id="companyLogo" src="" alt="logo"></div>
@@ -658,6 +731,7 @@
     <span class="sync-note">Auto-detects your first-entered OT row (Claim Type + From time) as the template, and copies its OT From / To / Remarks to every other row that already has a Claim Type selected — marked 🔗. Values stay manually editable.</span>
   </div>
 
+  <div class="table-wrap">
   <table>
     <thead>
       <tr>
@@ -684,6 +758,7 @@
       </tr>
     </tfoot>
   </table>
+  </div>
 
   <div class="no-print" style="margin-top:10px;font-size:13px;">
     📘 <a href="https://calexcl.github.io/OTCF/OTCF_User_Manual.html" target="_blank" rel="noopener">View User Manual</a>
@@ -704,6 +779,37 @@
       <div class="field"><label>Date</label><input type="text" id="approvedDate" readonly></div>
     </div>
   </div>
+</div>
+
+<div class="sheet" id="viewerScreen" style="display:none;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:10px;">
+    <h2 style="margin:0;color:var(--navy);">📋 Approved Overtime Claims</h2>
+    <a class="dash-link" href="https://myedengp01.github.io/DB-MEG-FORMS/">← Dashboard</a>
+  </div>
+  <div class="viewer-filters no-print">
+    <div class="field">
+      <label for="viewerCompany">Company</label>
+      <select id="viewerCompany" onchange="renderViewerClaims()">
+        <option value="">All companies</option>
+        <option value="MEG">MyEden Group</option>
+        <option value="HDS">Happy Dino Science Camp</option>
+        <option value="ABN">Aborne Project</option>
+        <option value="MEH">MyEden Edu Hub</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="viewerMonth">Month</label>
+      <select id="viewerMonth" onchange="renderViewerClaims()">
+        <option value="">All months</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="viewerYear">Year</label>
+      <input type="number" id="viewerYear" min="2000" max="2100" onchange="renderViewerClaims()">
+    </div>
+    <button onclick="clearViewerFilters()" style="padding:6px 14px;border-radius:6px;border:1px solid var(--line);background:#fff;cursor:pointer;font-size:12.5px;">Clear filters</button>
+  </div>
+  <div id="viewerClaimsList" style="margin-top:14px;"></div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -937,10 +1043,15 @@ function buildTable(){
     // Any row can be the sync source or a sync target — whichever earliest-dated
     // row is the first to have both a Claim Type and an OT From time becomes
     // the template (auto-detected, not hardcoded to day 1 of the month).
-    fromInput.addEventListener("change", syncOtHoursAcrossRows);
-    toInput.addEventListener("change", syncOtHoursAcrossRows);
-    remarksInput.addEventListener("input", syncOtHoursAcrossRows);
-    claimSelect.addEventListener("change", syncOtHoursAcrossRows);
+    // Only the SOURCE row's own edits broadcast outward; a target row's own
+    // edit locks that row out of future auto-overwrites so it stays editable.
+    fromInput.addEventListener("change", ()=>onOtRowFieldEdited(tr));
+    toInput.addEventListener("change", ()=>onOtRowFieldEdited(tr));
+    remarksInput.addEventListener("input", ()=>onOtRowFieldEdited(tr));
+    claimSelect.addEventListener("change", ()=>{
+      delete tr.dataset.otSyncLocked; // a fresh Claim Type selection gets a clean re-fill from the source
+      syncOtHoursAcrossRows();
+    });
 
     tbody.appendChild(tr);
   }
@@ -978,6 +1089,20 @@ function findOtHoursSourceRow(rows){
   return otHoursSourceRow;
 }
 
+// Fires on a row's own From/To ("change") or Remarks ("input") edit.
+function onOtRowFieldEdited(tr){
+  const cb = document.getElementById("sameOtHours");
+  if(!cb || !cb.checked) return;
+  if(syncingOtHours) return; // this event came from our own propagation write below, not a real user edit
+  const rows = Array.from(document.querySelectorAll("#tableBody tr"));
+  const source = findOtHoursSourceRow(rows);
+  if(tr === source){
+    syncOtHoursAcrossRows(); // the source's own value changed — broadcast it outward
+  } else {
+    tr.dataset.otSyncLocked = "1"; // the user edited this row directly — stop auto-overwriting it
+  }
+}
+
 function syncOtHoursAcrossRows(){
   const cb = document.getElementById("sameOtHours");
   if(!cb || !cb.checked) return;
@@ -998,6 +1123,7 @@ function syncOtHoursAcrossRows(){
 
     rows.forEach(tr=>{
       if(tr === source) return;
+      if(tr.dataset.otSyncLocked === "1") return; // user has manually edited this row — leave it alone
       const claimSelect = tr.querySelector(".claim-cell select");
       if(!claimSelect || claimSelect.value === "") return; // only rows with a Claim Type already set
       const times = tr.querySelectorAll(".time-cell input");
@@ -1215,7 +1341,7 @@ async function onAuthReady(){
     .eq('user_id', user.id).eq('form_code', FORM_CODE).maybeSingle();
   currentPerm = perm || null;
 
-  if(!currentPerm || !currentPerm.can_submit){
+  if(!currentPerm || (!currentPerm.can_submit && !currentPerm.can_view)){
     showAuthBox('pending');
     return;
   }
@@ -1223,7 +1349,16 @@ async function onAuthReady(){
   document.getElementById('authOverlay').style.display = 'none';
   document.getElementById('topUserBar').style.display = 'flex';
   document.getElementById('topUserLabel').textContent =
-    `Signed in as ${currentProfile?.full_name || currentUser.email}${currentPerm.is_admin ? ' (Admin)' : (currentPerm.can_approve ? ' (Approver)' : '')}`;
+    `Signed in as ${currentProfile?.full_name || currentUser.email}${currentPerm.is_admin ? ' (Admin)' : (currentPerm.can_approve ? ' (Approver)' : (currentPerm.can_view && !currentPerm.can_submit ? ' (Viewer)' : ''))}`;
+
+  // Viewer-only (no submit rights): show the read-only approved-claims screen
+  // instead of the submission form, and stop here.
+  if(currentPerm.can_view && !currentPerm.can_submit){
+    document.getElementById('mainFormSheet').style.display = 'none';
+    document.getElementById('viewerScreen').style.display = 'block';
+    await initViewerScreen();
+    return;
+  }
 
   // Auto-fill Name (empName) with the signed-in user's name, still editable
   if(currentProfile?.full_name && !document.getElementById('empName').value){
@@ -1241,6 +1376,77 @@ async function onAuthReady(){
   if(currentPerm.is_admin){
     document.getElementById('btnManageLists').style.display = 'inline-block';
   }
+
+  // Someone who can both submit AND view (e.g. an approver also doing payroll)
+  // gets a button to jump into the read-only approved-claims screen on demand.
+  if(currentPerm.can_view){
+    document.getElementById('btnViewerScreen').style.display = 'inline-block';
+  }
+}
+
+/* ---------- Viewer (payroll) screen: read-only, approved claims only ---------- */
+async function initViewerScreen(){
+  const monthSel = document.getElementById('viewerMonth');
+  if(monthSel.options.length <= 1){
+    MONTH_NAMES.forEach((name, idx)=>{
+      const o = document.createElement('option');
+      o.value = String(idx+1);
+      o.textContent = name;
+      monthSel.appendChild(o);
+    });
+  }
+  await renderViewerClaims();
+}
+
+function openViewerScreenFromToolbar(){
+  document.getElementById('mainFormSheet').style.display = 'none';
+  document.getElementById('viewerScreen').style.display = 'block';
+  initViewerScreen();
+}
+
+function clearViewerFilters(){
+  document.getElementById('viewerCompany').value = '';
+  document.getElementById('viewerMonth').value = '';
+  document.getElementById('viewerYear').value = '';
+  renderViewerClaims();
+}
+
+async function renderViewerClaims(){
+  const listEl = document.getElementById('viewerClaimsList');
+  listEl.innerHTML = '<div class="manage-empty">Loading claims...</div>';
+
+  const company = document.getElementById('viewerCompany').value;
+  const month = document.getElementById('viewerMonth').value;
+  const year = document.getElementById('viewerYear').value;
+
+  let query = sb.from('otcf_submissions')
+    .select('id, serial_no, emp_name, department, designation, company_code, month, year, total_hours, approved_at, approved_by_name, pdf_url')
+    .eq('status', 'approved');
+  if(company) query = query.eq('company_code', company);
+  if(month) query = query.eq('month', parseInt(month, 10));
+  if(year) query = query.eq('year', parseInt(year, 10));
+  query = query.order('approved_at', { ascending: false });
+
+  const { data, error } = await query;
+  if(error){ listEl.innerHTML = '<div class="manage-empty">Failed to load claims.</div>'; console.error(error); return; }
+  if(!data || data.length === 0){ listEl.innerHTML = '<div class="manage-empty">No approved claims match these filters.</div>'; return; }
+
+  listEl.innerHTML = data.map(sub=>{
+    const companyName = (Object.values(COMPANIES).find(c => c.code === sub.company_code) || {}).name || sub.company_code || '';
+    const monthName = MONTH_NAMES[(sub.month||1)-1] || '';
+    const approvedDate = sub.approved_at ? sub.approved_at.slice(0,10).split('-').reverse().join('/') : '';
+    const pdfAction = sub.pdf_url
+      ? `<a href="${escapeHtmlOtcf(sub.pdf_url)}" target="_blank" rel="noopener">📄 View / Download / Print</a>`
+      : `<span style="opacity:.5;cursor:default;">PDF not available</span>`;
+    return `
+      <div class="viewer-claim-row">
+        <div class="viewer-claim-info">
+          <div class="name">${escapeHtmlOtcf(sub.emp_name)} — ${escapeHtmlOtcf(sub.serial_no)}</div>
+          <div class="meta">${escapeHtmlOtcf(companyName)} · ${escapeHtmlOtcf(sub.department)} / ${escapeHtmlOtcf(sub.designation)} · ${escapeHtmlOtcf(monthName)} ${sub.year || ''} · ${sub.total_hours != null ? sub.total_hours : 0} hrs · Approved by ${escapeHtmlOtcf(sub.approved_by_name)} on ${approvedDate}</div>
+        </div>
+        <div class="viewer-claim-actions">${pdfAction}</div>
+      </div>`;
+  }).join('');
 }
 
 /* ---------- Shared dropdown lists synced with Supabase ---------- */
@@ -1370,101 +1576,6 @@ function generateApprovalToken(){
   return token;
 }
 /* ---------- Manage Lists (admin only) ---------- */
-const OTCF_ESCAPE_MAP = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'};
-function escOtcf(s){ return (s||'').replace(/[&<>"']/g, c=>OTCF_ESCAPE_MAP[c]); }
-
-let currentManageTab = 'empName';
-function openManageModal(){
-  document.getElementById('manageListsModal').style.display = 'flex';
-  showManageTab('empName');
-}
-function closeManageModal(){
-  document.getElementById('manageListsModal').style.display = 'none';
-}
-function showManageTab(tab){
-  currentManageTab = tab;
-  const order = ['empName','department','designation','users'];
-  document.querySelectorAll('.manage-tab-btn').forEach((btn,i)=>{
-    btn.classList.toggle('active', order[i]===tab);
-  });
-  if(tab==='users'){ renderUsersManageTab(); return; }
-  renderListManageTab(tab);
-}
-function renderListManageTab(selectId){
-  const def = DROPDOWN_DEFS[selectId];
-  const list = loadList(def.storeKey, def.seed).slice().sort((a,b)=>a.localeCompare(b,'en',{sensitivity:'base'}));
-  const cont = document.getElementById('manageListContent');
-  if(list.length===0){ cont.innerHTML = '<div class="manage-empty">No items in this list yet.</div>'; return; }
-  cont.innerHTML = list.map(name=>`
-    <div class="manage-list-item">
-      <span>${escOtcf(name)}</span>
-      <button class="manage-delete-btn" onclick="deleteOtcfListItem('${selectId}','${escOtcf(name).replace(/'/g,"\\'")}')">✕</button>
-    </div>`).join('');
-}
-async function deleteOtcfListItem(selectId, val){
-  if(!confirm(`Delete "${val}" from this list? This cannot be undone.`)) return;
-  const def = DROPDOWN_DEFS[selectId];
-  let list = loadList(def.storeKey, def.seed).filter(n=>n!==val);
-  saveList(def.storeKey, list);
-  populateDropdown(selectId);
-  const table = OTCF_TABLE_MAP[selectId];
-  if(table){
-    try{ await sb.from(table).delete().eq('name', val); }
-    catch(e){ console.error('Failed to delete from '+table, e); }
-  }
-  renderListManageTab(selectId);
-}
-async function renderUsersManageTab(){
-  const cont = document.getElementById('manageListContent');
-  cont.innerHTML = '<div class="manage-empty">Loading users...</div>';
-  try{
-    const { data: profiles } = await sb.from('profiles').select('*').order('full_name');
-    const { data: perms } = await sb.from('form_permissions').select('*').eq('form_code', FORM_CODE);
-    const permMap = {};
-    (perms||[]).forEach(p=>{ permMap[p.user_id] = p; });
-    if(!profiles || profiles.length===0){ cont.innerHTML = '<div class="manage-empty">No users found.</div>'; return; }
-    cont.innerHTML = profiles.map(p=>{
-      const perm = permMap[p.id] || { can_submit:false, can_approve:false, is_admin:false };
-      return `
-        <div class="manage-list-item" style="flex-direction:column;align-items:flex-start;gap:4px;">
-          <div style="font-weight:600;">${escOtcf(p.full_name)} <span style="color:#888;font-weight:400;">(${escOtcf(p.status)})</span></div>
-          <div style="display:flex;gap:12px;font-size:12px;">
-            <label><input type="checkbox" ${perm.can_submit?'checked':''} onchange="updateOtcfPermission('${p.id}','can_submit',this.checked)"> Can Submit</label>
-            <label><input type="checkbox" ${perm.can_approve?'checked':''} onchange="updateOtcfPermission('${p.id}','can_approve',this.checked)"> Can Approve</label>
-            <label><input type="checkbox" ${perm.is_admin?'checked':''} onchange="updateOtcfPermission('${p.id}','is_admin',this.checked)"> Admin</label>
-          </div>
-        </div>`;
-    }).join('');
-  }catch(e){
-    console.error(e);
-    cont.innerHTML = '<div class="manage-empty">Failed to load users.</div>';
-  }
-}
-async function updateOtcfPermission(userId, field, value){
-  try{
-    const { data: existing } = await sb.from('form_permissions').select('*')
-      .eq('user_id', userId).eq('form_code', FORM_CODE).maybeSingle();
-    if(existing){
-      await sb.from('form_permissions').update({ [field]: value }).eq('id', existing.id);
-    } else {
-      await sb.from('form_permissions').insert({
-        user_id: userId, form_code: FORM_CODE,
-        can_submit: field==='can_submit'?value:false,
-        can_approve: field==='can_approve'?value:false,
-        is_admin: field==='is_admin'?value:false
-      });
-    }
-    if(value){
-      await sb.from('profiles').update({ status:'active' }).eq('id', userId).eq('status','pending');
-    }
-    await renderUsersManageTab();
-  }catch(e){
-    console.error('Failed to update permission', e);
-    alert('Failed to update permission: ' + e.message);
-  }
-}
-
-/* ---------- Manage Lists (admin only) ---------- */
 let currentManageKey = 'empName';
 function openManageModal(){
   document.getElementById('manageListsModal').style.display = 'flex';
@@ -1516,13 +1627,14 @@ async function renderUsersManageTab(){
     (perms||[]).forEach(p=>{ permMap[p.user_id] = p; });
     if(!profiles || profiles.length===0){ cont.innerHTML = '<div class="manage-empty">No users found.</div>'; return; }
     cont.innerHTML = profiles.map(p=>{
-      const perm = permMap[p.id] || { can_submit:false, can_approve:false, is_admin:false };
+      const perm = permMap[p.id] || { can_submit:false, can_approve:false, is_admin:false, can_view:false };
       return `
         <div class="manage-list-item" style="flex-direction:column;align-items:flex-start;gap:4px;">
           <div style="font-weight:600;">${escapeHtmlOtcf(p.full_name)} <span style="color:var(--muted);font-weight:400;">(${escapeHtmlOtcf(p.status)})</span></div>
-          <div style="display:flex;gap:12px;font-size:12px;">
+          <div style="display:flex;gap:12px;font-size:12px;flex-wrap:wrap;">
             <label><input type="checkbox" ${perm.can_submit?'checked':''} onchange="updateOtcfUserPermission('${p.id}','can_submit',this.checked)"> Can Submit</label>
             <label><input type="checkbox" ${perm.can_approve?'checked':''} onchange="updateOtcfUserPermission('${p.id}','can_approve',this.checked)"> Can Approve</label>
+            <label><input type="checkbox" ${perm.can_view?'checked':''} onchange="updateOtcfUserPermission('${p.id}','can_view',this.checked)"> Can View (Payroll)</label>
             <label><input type="checkbox" ${perm.is_admin?'checked':''} onchange="updateOtcfUserPermission('${p.id}','is_admin',this.checked)"> Admin</label>
           </div>
         </div>`;
@@ -1540,6 +1652,7 @@ async function updateOtcfUserPermission(userId, field, value){
         user_id: userId, form_code: FORM_CODE,
         can_submit: field==='can_submit'?value:false,
         can_approve: field==='can_approve'?value:false,
+        can_view: field==='can_view'?value:false,
         is_admin: field==='is_admin'?value:false
       });
     }
@@ -1565,12 +1678,16 @@ async function renderApproverPanel(){
       <button class="view-btn" onclick="event.stopPropagation(); openApprovalReview('${sub.id}')">🔍 View</button>
     </div>`).join('');
 }
-function escapeHtmlOtcf(s){ return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function escapeHtmlOtcf(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 /* ---------- Browse & review a pending submission before approving ---------- */
+let currentReviewSub = null; // the submission currently open in the review modal
+let currentReviewPdfUrl = null; // object URL for the last generated PDF (revoked on close/reopen)
+
 function openApprovalReview(id){
   const sub = pendingApprovalsCache.find(s => s.id === id);
   if(!sub){ alert('That submission is no longer pending — refreshing the list.'); renderApproverPanel(); return; }
+  currentReviewSub = sub;
 
   const companyName = (Object.values(COMPANIES).find(c => c.code === sub.company_code) || {}).name || sub.company_code || '';
   const monthName = MONTH_NAMES[(sub.month||1)-1] || '';
@@ -1607,27 +1724,102 @@ function openApprovalReview(id){
       <tbody>${rowsHtml || '<tr><td colspan="8" style="color:var(--muted);">No line items.</td></tr>'}</tbody>
     </table>`;
 
-  document.getElementById('approvalReviewApproveBtn').onclick = () => approveSubmission(sub.id);
+  // Reset the reason box / PDF actions / footer to their default state each time the modal opens
+  document.getElementById('approvalReviewReasonBox').style.display = 'none';
+  document.getElementById('approvalReviewReasonText').value = '';
+  document.getElementById('approvalReviewPdfActions').style.display = 'none';
+  document.getElementById('approvalReviewFooterButtons').style.display = 'flex';
+  if(currentReviewPdfUrl){ URL.revokeObjectURL(currentReviewPdfUrl); currentReviewPdfUrl = null; }
+
+  document.getElementById('approvalReviewApproveBtn').onclick = () => approveSubmissionWithPdf(sub.id);
+  document.getElementById('approvalReviewDisapproveBtn').onclick = showDisapproveReasonBox;
   document.getElementById('approvalReviewModal').style.display = 'flex';
 }
 function closeApprovalReviewModal(){
   document.getElementById('approvalReviewModal').style.display = 'none';
+  if(currentReviewPdfUrl){ URL.revokeObjectURL(currentReviewPdfUrl); currentReviewPdfUrl = null; }
+  currentReviewSub = null;
 }
 
-async function approveSubmission(id){
+function showDisapproveReasonBox(){
+  document.getElementById('approvalReviewFooterButtons').style.display = 'none';
+  document.getElementById('approvalReviewReasonBox').style.display = 'block';
+  document.getElementById('approvalReviewReasonText').focus();
+}
+function cancelDisapprove(){
+  document.getElementById('approvalReviewReasonBox').style.display = 'none';
+  document.getElementById('approvalReviewFooterButtons').style.display = 'flex';
+}
+function confirmDisapprove(){
+  const reason = document.getElementById('approvalReviewReasonText').value.trim();
+  if(!reason){ alert('Please enter a reason for disapproval.'); return; }
+  if(!currentReviewSub) return;
+  disapproveSubmission(currentReviewSub.id, reason);
+}
+
+async function approveSubmissionWithPdf(id){
   if(!confirm('Approve this overtime claim?')) return;
   const token = generateApprovalToken();
+  const approvedByName = currentProfile?.full_name || currentUser.email;
+  const approvedAt = new Date().toISOString();
   const { error } = await sb.from('otcf_submissions').update({
     status: 'approved',
     approval_token: token,
     approved_by: currentUser.id,
-    approved_by_name: currentProfile?.full_name || currentUser.email,
-    approved_at: new Date().toISOString()
+    approved_by_name: approvedByName,
+    approved_at: approvedAt
   }).eq('id', id);
   if(error){ alert('Failed to approve: ' + error.message); return; }
-  alert('Claim approved.');
+
+  document.getElementById('approvalReviewFooterButtons').style.display = 'none';
+  setModalPdfNote('Claim approved. Generating PDF…');
+  document.getElementById('approvalReviewPdfActions').style.display = 'flex';
+
+  const subForPdf = { ...currentReviewSub, approval_token: token, approved_by_name: approvedByName, approved_at: approvedAt, status: 'approved' };
+  try{
+    const blob = await generateApprovalPdf(subForPdf);
+    const fileName = buildSubmissionFileName(subForPdf, 'Approved');
+    presentPdfActions(blob, fileName, 'Claim approved — PDF ready to save or share.');
+    uploadSubmissionPdf(id, blob, fileName).catch(e => console.error('PDF upload failed (non-fatal):', e));
+  } catch(e){
+    console.error('Approval PDF generation failed:', e);
+    setModalPdfNote('Claim approved, but the PDF could not be generated. You can still print it from the main form.');
+  }
+
   notifyEdgeFunction('approved', id);
-  closeApprovalReviewModal();
+  await renderApproverPanel();
+}
+
+async function disapproveSubmission(id, reason){
+  if(!confirm('Disapprove this overtime claim? The claimant will be notified with your reason.')) return;
+  const disapprovedByName = currentProfile?.full_name || currentUser.email;
+  const disapprovedAt = new Date().toISOString();
+  const { error } = await sb.from('otcf_submissions').update({
+    status: 'disapproved',
+    disapproved_by: currentUser.id,
+    disapproved_by_name: disapprovedByName,
+    disapproved_at: disapprovedAt,
+    disapproval_reason: reason
+  }).eq('id', id);
+  if(error){ alert('Failed to disapprove: ' + error.message); return; }
+
+  document.getElementById('approvalReviewReasonBox').style.display = 'none';
+  document.getElementById('approvalReviewFooterButtons').style.display = 'none';
+  setModalPdfNote('Claim disapproved. Generating PDF…');
+  document.getElementById('approvalReviewPdfActions').style.display = 'flex';
+
+  const subForPdf = { ...currentReviewSub, disapproved_by_name: disapprovedByName, disapproved_at: disapprovedAt, disapproval_reason: reason, status: 'disapproved' };
+  try{
+    const blob = generateDisapprovalSummaryPdf(subForPdf, reason);
+    const fileName = buildSubmissionFileName(subForPdf, 'Disapproved');
+    presentPdfActions(blob, fileName, 'Claim disapproved — PDF ready to save or share.');
+    uploadSubmissionPdf(id, blob, fileName).catch(e => console.error('PDF upload failed (non-fatal):', e));
+  } catch(e){
+    console.error('Disapproval PDF generation failed:', e);
+    setModalPdfNote('Claim disapproved, but the PDF could not be generated.');
+  }
+
+  notifyEdgeFunction('disapproved', id);
   await renderApproverPanel();
 }
 
@@ -1660,8 +1852,8 @@ function setStatus(msg){
   if(el) el.textContent = msg || "";
 }
 
-async function generatePDFBlob(){
-  const sheet = document.querySelector(".sheet");
+async function generatePDFBlob(sheetEl){
+  const sheet = sheetEl || document.querySelector(".sheet");
   const canvas = await html2canvas(sheet, { scale: 2, useCORS: true });
   const imgData = canvas.toDataURL("image/jpeg", 0.95);
 
@@ -1686,6 +1878,209 @@ async function generatePDFBlob(){
   }
 
   return pdf.output("blob");
+}
+
+// ---------- Approve/Disapprove PDF generation + presentation ----------
+function setModalPdfNote(msg){
+  const el = document.getElementById('approvalReviewPdfNote');
+  if(el) el.textContent = msg || '';
+}
+
+function buildSubmissionFileName(sub, statusLabel){
+  const safeName = (sub.emp_name || 'OTCF').replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '');
+  const monthName = MONTH_NAMES[(sub.month||1)-1] || '';
+  return `OTCF_${safeName}_${monthName}_${sub.year || ''}_${statusLabel}.pdf`;
+}
+
+// Wires the modal's Save/Share buttons to a freshly generated PDF blob.
+function presentPdfActions(blob, fileName, note){
+  setModalPdfNote(note);
+  if(currentReviewPdfUrl){ URL.revokeObjectURL(currentReviewPdfUrl); }
+  currentReviewPdfUrl = URL.createObjectURL(blob);
+
+  const saveBtn = document.getElementById('approvalReviewSavePdfBtn');
+  saveBtn.onclick = () => {
+    const a = document.createElement('a');
+    a.href = currentReviewPdfUrl;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  const shareBtn = document.getElementById('approvalReviewSharePdfBtn');
+  shareBtn.onclick = async () => {
+    const file = new File([blob], fileName, { type: 'application/pdf' });
+    if(navigator.canShare && navigator.canShare({ files: [file] })){
+      try{ await navigator.share({ files: [file], title: fileName, text: fileName }); }
+      catch(e){ console.error('Share cancelled/failed:', e); }
+    } else {
+      saveBtn.click();
+      alert("Sharing isn't supported on this browser — PDF downloaded instead. Attach it manually.");
+    }
+  };
+}
+
+// Builds a read-only, print-styled rendering of a submission (reusing the .sheet
+// layout/CSS classes but with plain text instead of live form inputs) so it can be
+// captured off-screen without ever touching the approver's own live form.
+function makeReadOnlySheetHtml(sub){
+  const companyMeta = Object.values(COMPANIES).find(c => c.code === sub.company_code) || {};
+  const companyName = companyMeta.name || sub.company_code || '';
+  const logo = companyMeta.logo || '';
+  const monthName = MONTH_NAMES[(sub.month||1)-1] || '';
+  const items = Array.isArray(sub.line_items) ? sub.line_items : [];
+  const numDays = sub.no_of_days || items.length || '';
+  const grandTotal = sub.total_hours != null ? Number(sub.total_hours).toFixed(1) : '0.0';
+  const approvedDate = sub.approved_at ? sub.approved_at.slice(0,10).split('-').reverse().join('/') : '';
+
+  const rowsHtml = items.map(it=>{
+    const trClass = it.ph ? 'ph-row' : (['Saturday','Sunday'].includes(it.day) ? 'weekend' : '');
+    return `<tr class="${trClass}">
+      <td class="date-cell">${escapeHtmlOtcf(it.date)}</td>
+      <td class="day-cell">${escapeHtmlOtcf(it.day)}</td>
+      <td class="ph-cell">${it.ph ? '☑' : ''}</td>
+      <td class="claim-cell">${escapeHtmlOtcf(it.claimType)}</td>
+      <td class="time-cell">${escapeHtmlOtcf(it.from)}</td>
+      <td class="time-cell">${escapeHtmlOtcf(it.to)}</td>
+      <td class="total-cell">${escapeHtmlOtcf(it.totalHrs)}</td>
+      <td class="remarks-cell">${escapeHtmlOtcf(it.remarks)}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+  <div class="sheet" style="max-width:980px;">
+    <div class="version">${escapeHtmlOtcf(document.title)}</div>
+    <div class="form-header">
+      <div class="logo-box"><img src="${logo}" alt="logo"></div>
+      <div class="title-box">
+        <div class="company-name">${escapeHtmlOtcf(companyName)}</div>
+        <div class="form-title">Overtime Claim Form (OTCF)</div>
+      </div>
+      <div class="serial-box">
+        <div class="label">Serial No.</div>
+        <div class="serial-display">${escapeHtmlOtcf(sub.serial_no)}</div>
+      </div>
+    </div>
+    <div class="header-grid">
+      <div class="field"><label>Name</label><div class="field-value">${escapeHtmlOtcf(sub.emp_name)}</div></div>
+      <div class="field"><label>Department</label><div class="field-value">${escapeHtmlOtcf(sub.department)}</div></div>
+      <div class="field"><label>Designation</label><div class="field-value">${escapeHtmlOtcf(sub.designation)}</div></div>
+      <div class="field"><label>Month</label><div class="field-value">${escapeHtmlOtcf(monthName)}</div></div>
+      <div class="field"><label>Submission Date</label><div class="field-value">${escapeHtmlOtcf(sub.submission_date)}</div></div>
+      <div class="field"><label>No. of days in mth</label><div class="field-value">${escapeHtmlOtcf(numDays)}</div></div>
+      <div class="field"></div>
+      <div class="field"><label>Year</label><div class="field-value">${escapeHtmlOtcf(sub.year)}</div></div>
+    </div>
+    <div class="working-hours">
+      <div><label>Working Hour From:</label> <span class="field-value">${escapeHtmlOtcf(sub.working_hour_from)}</span></div>
+      <div><label>To:</label> <span class="field-value">${escapeHtmlOtcf(sub.working_hour_to)}</span></div>
+    </div>
+    <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th rowspan="2">Date</th><th rowspan="2">Day</th><th rowspan="2">PH</th><th rowspan="2">Claim Type</th>
+          <th colspan="2">OT Hrs</th><th rowspan="2">Total Hrs</th><th rowspan="2">Remarks</th>
+        </tr>
+        <tr><th>From</th><th>To</th></tr>
+      </thead>
+      <tbody>${rowsHtml}</tbody>
+      <tfoot><tr><td colspan="6">Total Hours :</td><td>${grandTotal}</td><td></td></tr></tfoot>
+    </table>
+    </div>
+    <div class="sig-grid">
+      <div class="sig-line">Claimant's Signature</div>
+      <div class="approved">
+        <h3>Approved By</h3>
+        <div class="field"><label>Name</label><div class="field-value">${escapeHtmlOtcf(sub.approved_by_name)}</div></div>
+        <div class="field"><label>Signature</label><div class="field-value">${escapeHtmlOtcf(sub.approval_token)}</div></div>
+        <div class="field"><label>Date</label><div class="field-value">${escapeHtmlOtcf(approvedDate)}</div></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// Renders the read-only sheet off-screen (never touching the approver's live form),
+// captures it with the same html2canvas+jsPDF pipeline as the Print/Share buttons,
+// then discards the off-screen copy.
+async function generateApprovalPdf(sub){
+  const wrapper = document.createElement('div');
+  wrapper.style.position = 'fixed';
+  wrapper.style.top = '0';
+  wrapper.style.left = '-10000px';
+  wrapper.style.width = '980px';
+  wrapper.style.background = '#fff';
+  wrapper.innerHTML = makeReadOnlySheetHtml(sub);
+  document.body.appendChild(wrapper);
+  try{
+    await new Promise(r => setTimeout(r, 60)); // let the logo image finish loading before capture
+    return await generatePDFBlob(wrapper.querySelector('.sheet'));
+  } finally {
+    wrapper.remove();
+  }
+}
+
+// Simple text-based summary PDF for a disapproval — no letterhead render needed.
+function generateDisapprovalSummaryPdf(sub, reason){
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF('p', 'mm', 'a4');
+  const companyName = (Object.values(COMPANIES).find(c => c.code === sub.company_code) || {}).name || sub.company_code || '';
+  const monthName = MONTH_NAMES[(sub.month||1)-1] || '';
+  let y = 20;
+
+  pdf.setFontSize(14); pdf.setFont(undefined, 'bold');
+  pdf.text('Overtime Claim — Disapproved', 15, y); y += 8;
+  pdf.setFontSize(10); pdf.setFont(undefined, 'normal');
+  pdf.text(`Company: ${companyName}`, 15, y); y += 6;
+  pdf.text(`Serial No: ${sub.serial_no || ''}`, 15, y); y += 6;
+  pdf.text(`Name: ${sub.emp_name || ''}`, 15, y); y += 6;
+  pdf.text(`Department: ${sub.department || ''}   Designation: ${sub.designation || ''}`, 15, y); y += 6;
+  pdf.text(`Period: ${monthName} ${sub.year || ''}`, 15, y); y += 6;
+  pdf.text(`Total Hours Claimed: ${sub.total_hours != null ? sub.total_hours : ''}`, 15, y); y += 10;
+
+  pdf.setFont(undefined, 'bold'); pdf.text('Disapproved By:', 15, y); pdf.setFont(undefined, 'normal');
+  pdf.text(String(sub.disapproved_by_name || ''), 55, y); y += 6;
+  pdf.setFont(undefined, 'bold'); pdf.text('Date:', 15, y); pdf.setFont(undefined, 'normal');
+  pdf.text(sub.disapproved_at ? sub.disapproved_at.slice(0,10).split('-').reverse().join('/') : '', 55, y); y += 10;
+
+  pdf.setFont(undefined, 'bold'); pdf.text('Reason:', 15, y); y += 6;
+  pdf.setFont(undefined, 'normal');
+  const reasonLines = pdf.splitTextToSize(reason || '', 180);
+  pdf.text(reasonLines, 15, y); y += reasonLines.length * 5 + 8;
+
+  pdf.setFont(undefined, 'bold');
+  pdf.text('Date', 15, y); pdf.text('Day', 32, y); pdf.text('Claim Type', 52, y);
+  pdf.text('From', 90, y); pdf.text('To', 110, y); pdf.text('Hrs', 128, y); pdf.text('Remarks', 145, y);
+  y += 5;
+  pdf.setDrawColor(180); pdf.line(15, y, 195, y); y += 4;
+  pdf.setFont(undefined, 'normal'); pdf.setFontSize(9);
+  const items = (Array.isArray(sub.line_items) ? sub.line_items : []).filter(it => it.claimType);
+  items.forEach(it=>{
+    if(y > 275){ pdf.addPage(); y = 20; }
+    pdf.text(String(it.date || ''), 15, y);
+    pdf.text(String(it.day || ''), 32, y);
+    pdf.text(String(it.claimType || ''), 52, y);
+    pdf.text(String(it.from || ''), 90, y);
+    pdf.text(String(it.to || ''), 110, y);
+    pdf.text(String(it.totalHrs || ''), 128, y);
+    pdf.text(String(it.remarks || '').slice(0, 28), 145, y);
+    y += 5.5;
+  });
+
+  return pdf.output('blob');
+}
+
+// Uploads the generated PDF to Supabase Storage and records a signed URL on the
+// submission row so the notify Edge Function can link/attach it in the claimant email.
+async function uploadSubmissionPdf(id, blob, fileName){
+  const path = `${id}/${fileName}`;
+  const { error: upErr } = await sb.storage.from('otcf-pdfs').upload(path, blob, { upsert: true, contentType: 'application/pdf' });
+  if(upErr) throw upErr;
+  const { data: signed, error: signErr } = await sb.storage.from('otcf-pdfs').createSignedUrl(path, 60*60*24*30); // 30 days
+  if(signErr) throw signErr;
+  await sb.from('otcf_submissions').update({ pdf_url: signed.signedUrl }).eq('id', id);
+  return signed.signedUrl;
 }
 
 // ---------- Blank out unfilled "-- Select --" / empty time fields for print/PDF ----------
