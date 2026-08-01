@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MEG-FORMS-OTCF v2026.07.30-18:00</title>
+<title>MEG-OTCF v2026.08.01-18:00</title>
 <style>
   :root{
     --pink:#f7b8cc;
@@ -91,6 +91,53 @@
   .working-hours label{
     font-weight:bold;
     margin-right:6px;
+  }
+  .sync-bar{
+    background:#eef4ff;
+    border:1px solid #bcd3f5;
+    padding:9px 14px;
+    margin:0 0 14px;
+    display:flex;
+    gap:16px;
+    align-items:center;
+    flex-wrap:wrap;
+    font-size:13px;
+  }
+  .sync-control{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-weight:bold;
+    cursor:pointer;
+    color:var(--navy);
+  }
+  .sync-control input{
+    width:16px;
+    height:16px;
+    cursor:pointer;
+  }
+  .sync-note{
+    color:var(--muted);
+    font-size:11.5px;
+  }
+  tr.sync-source-row td.claim-cell{
+    outline:2px solid #2e8b57;
+    outline-offset:-2px;
+    position:relative;
+  }
+  tr.sync-source-row td.claim-cell::after{
+    content:"🔗 template";
+    display:block;
+    font-size:8.5px;
+    line-height:1.3;
+    color:#2e8b57;
+    font-weight:700;
+    white-space:nowrap;
+  }
+  @media print{
+    .sync-bar{ display:none; }
+    tr.sync-source-row td.claim-cell{ outline:none; }
+    tr.sync-source-row td.claim-cell::after{ display:none; }
   }
   table{
     width:100%;
@@ -296,6 +343,18 @@
   .approver-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #eee;font-size:13px;}
   .approver-row:last-child{border-bottom:none;}
   .approve-btn{background:#2e8b57;color:#fff;border:none;padding:6px 14px;border-radius:5px;cursor:pointer;font-weight:600;font-size:12px;}
+  .approver-row{cursor:pointer;}
+  .approver-row:hover{background:#fdf3d0;}
+  .view-btn{background:var(--navy);color:#fff;border:none;padding:6px 14px;border-radius:5px;cursor:pointer;font-weight:600;font-size:12px;}
+  .review-meta{display:grid;grid-template-columns:repeat(3,1fr);gap:6px 18px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--line);}
+  .review-meta div{font-size:12.5px;}
+  .review-meta b{display:block;color:var(--muted);font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;margin-bottom:1px;}
+  .review-table{width:100%;border-collapse:collapse;font-size:12px;}
+  .review-table th,.review-table td{border:1px solid var(--line);padding:4px 6px;text-align:center;}
+  .review-table th{background:#f2f4f8;}
+  .review-table tr.ph-row{background:#ffe9e9;}
+  .review-table tr.weekend-row{background:#f6f6f6;}
+  .review-table td.remarks-col{text-align:left;}
   .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);align-items:center;justify-content:center;z-index:3000;}
   .modal-box{background:#fff;border-radius:10px;padding:20px;width:480px;max-height:78vh;overflow:auto;}
   .modal-box h3{margin-top:0;color:var(--navy);}
@@ -471,6 +530,20 @@
   <div id="approverList"></div>
 </div>
 
+<div class="modal-overlay" id="approvalReviewModal">
+  <div class="modal-box" style="width:760px;max-width:94vw;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <h3 style="margin:0;">🔍 Review OT Claim</h3>
+      <span class="modal-close" onclick="closeApprovalReviewModal()">✕</span>
+    </div>
+    <div id="approvalReviewContent" style="overflow-y:auto;flex:1;font-size:13px;"></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;flex:none;">
+      <button onclick="closeApprovalReviewModal()" style="padding:8px 16px;border-radius:6px;border:1px solid var(--line);background:#fff;cursor:pointer;font-size:13px;">Close</button>
+      <button class="approve-btn" id="approvalReviewApproveBtn" style="padding:8px 16px;font-size:13px;">✅ Approve This Claim</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="manageListsModal">
   <div class="modal-box">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
@@ -504,7 +577,7 @@
 </div>
 
 <div class="sheet">
-  <div class="version">OTCF v.2026.07.03-23:15 &nbsp;|&nbsp; MEG-FORMS-OTCF v2026.07.30-18:00</div>
+  <div class="version">MEG-OTCF v2026.08.01-18:00</div>
 
   <div class="form-header">
     <div class="logo-box"><img id="companyLogo" src="" alt="logo"></div>
@@ -575,6 +648,14 @@
     <div><label for="whFrom">Working Hour From:</label><input type="time" id="whFrom" value="09:00"></div>
     <div><label for="whTo">To:</label><input type="time" id="whTo" value="18:00"></div>
     <div class="note" style="margin:0;">OT hours overlapping this range will be flagged as an error.</div>
+  </div>
+
+  <div class="sync-bar no-print">
+    <label class="sync-control" for="sameOtHours">
+      <input id="sameOtHours" type="checkbox">
+      Use the same OT Hours and Remarks for all Claim Type
+    </label>
+    <span class="sync-note">Auto-detects your first-entered OT row (Claim Type + From time) as the template, and copies its OT From / To / Remarks to every other row that already has a Claim Type selected — marked 🔗. Values stay manually editable.</span>
   </div>
 
   <table>
@@ -853,9 +934,88 @@ function buildTable(){
     toInput.addEventListener("change", recalcRow);
     totalInput.addEventListener("change", updateGrandTotal);
 
+    // Any row can be the sync source or a sync target — whichever earliest-dated
+    // row is the first to have both a Claim Type and an OT From time becomes
+    // the template (auto-detected, not hardcoded to day 1 of the month).
+    fromInput.addEventListener("change", syncOtHoursAcrossRows);
+    toInput.addEventListener("change", syncOtHoursAcrossRows);
+    remarksInput.addEventListener("input", syncOtHoursAcrossRows);
+    claimSelect.addEventListener("change", syncOtHoursAcrossRows);
+
     tbody.appendChild(tr);
   }
+  otHoursSourceRow = null; // table was rebuilt — forget any previously detected source row
   updateGrandTotal();
+}
+
+// ---------- "Use the same OT Hours and Remarks for all Claim Type" sync ----------
+// The source row is auto-detected (earliest-dated row with a Claim Type + an OT
+// From time) rather than assumed to be day 1, since claims don't always start
+// on the 1st of the month. Once found it's "sticky" — it keeps being used as
+// the source across further edits so a later row filled in for reference
+// doesn't accidentally hijack the role — until it's cleared out, at which point
+// the next earliest eligible row takes over automatically.
+let otHoursSourceRow = null;
+let syncingOtHours = false;
+
+function findOtHoursSourceRow(rows){
+  if(otHoursSourceRow && document.body.contains(otHoursSourceRow)){
+    const claimSelect = otHoursSourceRow.querySelector(".claim-cell select");
+    const times = otHoursSourceRow.querySelectorAll(".time-cell input");
+    if(claimSelect && claimSelect.value !== "" && times[0] && times[0].value !== ""){
+      return otHoursSourceRow; // still valid — stay sticky
+    }
+  }
+  otHoursSourceRow = null;
+  for(const tr of rows){
+    const claimSelect = tr.querySelector(".claim-cell select");
+    const times = tr.querySelectorAll(".time-cell input");
+    if(claimSelect && claimSelect.value !== "" && times[0] && times[0].value !== ""){
+      otHoursSourceRow = tr;
+      break;
+    }
+  }
+  return otHoursSourceRow;
+}
+
+function syncOtHoursAcrossRows(){
+  const cb = document.getElementById("sameOtHours");
+  if(!cb || !cb.checked) return;
+  if(syncingOtHours) return; // guard against re-entrancy from the dispatched "change" below
+  syncingOtHours = true;
+  try{
+    const rows = Array.from(document.querySelectorAll("#tableBody tr"));
+    rows.forEach(tr => tr.classList.remove("sync-source-row"));
+    const source = findOtHoursSourceRow(rows);
+    if(!source) return; // nothing eligible yet
+    source.classList.add("sync-source-row");
+
+    const srcTimes = source.querySelectorAll(".time-cell input");
+    const srcFrom = srcTimes[0] ? srcTimes[0].value : "";
+    const srcTo = srcTimes[1] ? srcTimes[1].value : "";
+    const srcRemarksInput = source.querySelector(".remarks-cell input");
+    const srcRemarks = srcRemarksInput ? srcRemarksInput.value : "";
+
+    rows.forEach(tr=>{
+      if(tr === source) return;
+      const claimSelect = tr.querySelector(".claim-cell select");
+      if(!claimSelect || claimSelect.value === "") return; // only rows with a Claim Type already set
+      const times = tr.querySelectorAll(".time-cell input");
+      const remarksInput = tr.querySelector(".remarks-cell input");
+      const fromChanged = times[0] && times[0].value !== srcFrom;
+      const toChanged = times[1] && times[1].value !== srcTo;
+      const remarksChanged = remarksInput && remarksInput.value !== srcRemarks;
+      if(!fromChanged && !toChanged && !remarksChanged) return; // already in sync
+      if(times[0]) times[0].value = srcFrom;
+      if(times[1]) times[1].value = srcTo;
+      if(remarksInput) remarksInput.value = srcRemarks;
+      // Reuse the row's own recalcRow (bound to its "change" listener) to refresh
+      // Total Hrs, overlap validation, and the grand total.
+      if(times[1]) times[1].dispatchEvent(new Event("change"));
+    });
+  } finally {
+    syncingOtHours = false;
+  }
 }
 
 function updateGrandTotal(){
@@ -892,6 +1052,13 @@ monthSelect.addEventListener("change", buildTable);
 document.getElementById("year").addEventListener("change", buildTable);
 document.getElementById("whFrom").addEventListener("change", recalcAllRowsForWorkingHours);
 document.getElementById("whTo").addEventListener("change", recalcAllRowsForWorkingHours);
+document.getElementById("sameOtHours").addEventListener("change", function(){
+  if(this.checked){
+    syncOtHoursAcrossRows();
+  } else {
+    document.querySelectorAll("#tableBody tr.sync-source-row").forEach(tr => tr.classList.remove("sync-source-row"));
+  }
+});
 
 buildTable();
 
@@ -950,6 +1117,7 @@ const FORM_CODE = "otcf";
 const EDGE_FN_URL = SUPABASE_URL + "/functions/v1/otcf-notify";
 
 let currentUser = null, currentProfile = null, currentPerm = null, currentDraftId = null;
+let pendingApprovalsCache = [];
 
 function showAuthBox(which){
   document.getElementById('authBoxLogin').style.display = which==='login' ? 'block':'none';
@@ -1389,14 +1557,62 @@ async function renderApproverPanel(){
   const { data, error } = await sb.from('otcf_submissions').select('*').eq('status','submitted').order('created_at');
   const listEl = document.getElementById('approverList');
   if(error){ listEl.innerHTML = '<div>Failed to load pending approvals.</div>'; return; }
-  if(!data || data.length===0){ listEl.innerHTML = '<div style="color:#888;font-size:13px;">No pending approvals.</div>'; return; }
-  listEl.innerHTML = data.map(sub=>`
-    <div class="approver-row">
+  pendingApprovalsCache = data || [];
+  if(pendingApprovalsCache.length===0){ listEl.innerHTML = '<div style="color:#888;font-size:13px;">No pending approvals.</div>'; return; }
+  listEl.innerHTML = pendingApprovalsCache.map(sub=>`
+    <div class="approver-row" onclick="openApprovalReview('${sub.id}')">
       <span>${escapeHtmlOtcf(sub.emp_name)} — ${escapeHtmlOtcf(sub.serial_no)} (${sub.total_hours} hrs)</span>
-      <button class="approve-btn" onclick="approveSubmission('${sub.id}')">Approve</button>
+      <button class="view-btn" onclick="event.stopPropagation(); openApprovalReview('${sub.id}')">🔍 View</button>
     </div>`).join('');
 }
 function escapeHtmlOtcf(s){ return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ---------- Browse & review a pending submission before approving ---------- */
+function openApprovalReview(id){
+  const sub = pendingApprovalsCache.find(s => s.id === id);
+  if(!sub){ alert('That submission is no longer pending — refreshing the list.'); renderApproverPanel(); return; }
+
+  const companyName = (Object.values(COMPANIES).find(c => c.code === sub.company_code) || {}).name || sub.company_code || '';
+  const monthName = MONTH_NAMES[(sub.month||1)-1] || '';
+  const items = Array.isArray(sub.line_items) ? sub.line_items : [];
+
+  const rowsHtml = items.map(it=>{
+    const rowClass = it.ph ? 'ph-row' : (['Off Day','Rest Day'].includes(it.claimType) ? 'weekend-row' : '');
+    return `<tr class="${rowClass}">
+      <td>${escapeHtmlOtcf(it.date)}</td>
+      <td>${escapeHtmlOtcf(it.day)}</td>
+      <td>${it.ph ? '✔' : ''}</td>
+      <td>${escapeHtmlOtcf(it.claimType)}</td>
+      <td>${escapeHtmlOtcf(it.from)}</td>
+      <td>${escapeHtmlOtcf(it.to)}</td>
+      <td>${escapeHtmlOtcf(it.totalHrs)}</td>
+      <td class="remarks-col">${escapeHtmlOtcf(it.remarks)}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('approvalReviewContent').innerHTML = `
+    <div class="review-meta">
+      <div><b>Company</b>${escapeHtmlOtcf(companyName)}</div>
+      <div><b>Serial No.</b>${escapeHtmlOtcf(sub.serial_no)}</div>
+      <div><b>Submission Date</b>${escapeHtmlOtcf(sub.submission_date)}</div>
+      <div><b>Name</b>${escapeHtmlOtcf(sub.emp_name)}</div>
+      <div><b>Department</b>${escapeHtmlOtcf(sub.department)}</div>
+      <div><b>Designation</b>${escapeHtmlOtcf(sub.designation)}</div>
+      <div><b>Month / Year</b>${escapeHtmlOtcf(monthName)} ${sub.year || ''}</div>
+      <div><b>Working Hours</b>${escapeHtmlOtcf(sub.working_hour_from)} – ${escapeHtmlOtcf(sub.working_hour_to)}</div>
+      <div><b>Total Hours</b>${sub.total_hours}</div>
+    </div>
+    <table class="review-table">
+      <thead><tr><th>Date</th><th>Day</th><th>PH</th><th>Claim Type</th><th>From</th><th>To</th><th>Total Hrs</th><th>Remarks</th></tr></thead>
+      <tbody>${rowsHtml || '<tr><td colspan="8" style="color:var(--muted);">No line items.</td></tr>'}</tbody>
+    </table>`;
+
+  document.getElementById('approvalReviewApproveBtn').onclick = () => approveSubmission(sub.id);
+  document.getElementById('approvalReviewModal').style.display = 'flex';
+}
+function closeApprovalReviewModal(){
+  document.getElementById('approvalReviewModal').style.display = 'none';
+}
 
 async function approveSubmission(id){
   if(!confirm('Approve this overtime claim?')) return;
@@ -1411,6 +1627,7 @@ async function approveSubmission(id){
   if(error){ alert('Failed to approve: ' + error.message); return; }
   alert('Claim approved.');
   notifyEdgeFunction('approved', id);
+  closeApprovalReviewModal();
   await renderApproverPanel();
 }
 
