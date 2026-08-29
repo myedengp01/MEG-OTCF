@@ -685,6 +685,7 @@
       <div class="serial-display" id="serialDisplay">OTCF-MEG-000000-0000</div>
       <div class="serial-edit no-print">
         <input type="text" id="serialYYYYMM" maxlength="6" placeholder="YYYYMM" oninput="updateSerial()">
+        <input type="text" id="serialDD" maxlength="2" placeholder="DD" oninput="updateSerial()">
         <input type="text" id="serialHHMM" maxlength="4" placeholder="HHMM" oninput="updateSerial()">
       </div>
     </div>
@@ -1216,23 +1217,30 @@ function onCompanyChange(){
   document.getElementById('companyNameDisplay').textContent = c.name;
   updateSerial();
 }
+let serialRandomSuffix = '';
 function updateSerial(){
   const key = document.getElementById('companySelect').value;
   const c = COMPANIES[key];
   const yyyymm = document.getElementById('serialYYYYMM').value || 'YYYYMM';
+  const dd = document.getElementById('serialDD').value || 'DD';
   const hhmm = document.getElementById('serialHHMM').value || 'HHMM';
-  document.getElementById('serialDisplay').textContent = `OTCF-${c.code}-${yyyymm}-${hhmm}`;
+  document.getElementById('serialDisplay').textContent = `OTCF-${c.code}-${yyyymm}${dd}-${hhmm}-${serialRandomSuffix}`;
 }
 (function initSerial(){
   const d = new Date();
   document.getElementById('serialYYYYMM').value = `${d.getFullYear()}${pad(d.getMonth()+1)}`;
+  document.getElementById('serialDD').value = pad(d.getDate());
   document.getElementById('serialHHMM').value = `${pad(d.getHours())}${pad(d.getMinutes())}`;
+  // Generated once here, not regenerated on every updateSerial() call (which
+  // fires on every keystroke while editing yyyymm/dd/hhmm) — otherwise the
+  // serial would keep changing unpredictably as the user edits other fields.
+  serialRandomSuffix = Math.random().toString(36).slice(2, 4).toUpperCase();
 })();
 onCompanyChange(); // set default logo + serial on load
 
 
 /* ===================== SUPABASE / AUTH / SUBMISSIONS ===================== */
-const VERSION_STAMP = "MEG-OTCF v2026.08.29-23:30";
+const VERSION_STAMP = "MEG-OTCF v2026.08.30-00:00";
 document.title = VERSION_STAMP;
 document.getElementById('loginVersionStamp').textContent = VERSION_STAMP;
 document.getElementById('formVersionStamp').textContent = VERSION_STAMP;
