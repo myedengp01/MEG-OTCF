@@ -1232,7 +1232,7 @@ onCompanyChange(); // set default logo + serial on load
 
 
 /* ===================== SUPABASE / AUTH / SUBMISSIONS ===================== */
-const VERSION_STAMP = "MEG-OTCF v2026.08.29-23:00";
+const VERSION_STAMP = "MEG-OTCF v2026.08.29-23:15";
 document.title = VERSION_STAMP;
 document.getElementById('loginVersionStamp').textContent = VERSION_STAMP;
 document.getElementById('formVersionStamp').textContent = VERSION_STAMP;
@@ -1665,16 +1665,33 @@ async function submitClaim(){
   // TEMPORARY DIAGNOSTIC — remove once the new-account submit failure is
   // confirmed and fixed for good. Compares the app's own currentUser.id
   // against a session fetched fresh, right at this moment, directly from
-  // the Supabase client itself — these SHOULD always match; if they don't,
-  // that's the real bug (the client's session hasn't attached to actual
-  // requests yet, even though the app's own variable looks correct).
+  // the Supabase client itself, AND decodes the actual JWT's claims —
+  // a "valid-looking" session object isn't proof the token itself carries
+  // the right claims server-side, so this checks the token directly.
   const { data: freshSession } = await sb.auth.getSession();
+  const token = freshSession?.session?.access_token;
+  let jwtClaims = null, jwtError = null;
+  try{
+    if(token){
+      const payloadPart = token.split('.')[1];
+      const base64 = payloadPart.replace(/-/g, '+').replace(/_/g, '/');
+      const padded = base64 + '=='.slice(0, (4 - base64.length % 4) % 4);
+      jwtClaims = JSON.parse(atob(padded));
+    }
+  }catch(e){ jwtError = e.message; }
   const diag =
     'currentUser.id: ' + JSON.stringify(currentUser.id) + '\n' +
     'submitted_by being sent: ' + JSON.stringify(payload.submitted_by) + '\n' +
     'fresh session user id: ' + JSON.stringify(freshSession?.session?.user?.id) + '\n' +
-    'fresh session has access_token: ' + Boolean(freshSession?.session?.access_token) + '\n' +
-    'IDs match: ' + (currentUser.id === freshSession?.session?.user?.id);
+    'fresh session has access_token: ' + Boolean(token) + '\n' +
+    'IDs match: ' + (currentUser.id === freshSession?.session?.user?.id) + '\n' +
+    '--- decoded JWT claims ---\n' +
+    'sub: ' + JSON.stringify(jwtClaims?.sub) + '\n' +
+    'role: ' + JSON.stringify(jwtClaims?.role) + '\n' +
+    'aud: ' + JSON.stringify(jwtClaims?.aud) + '\n' +
+    'exp: ' + jwtClaims?.exp + ' (now: ' + Math.floor(Date.now()/1000) + ', expired: ' + (jwtClaims?.exp ? jwtClaims.exp < Date.now()/1000 : 'unknown') + ')\n' +
+    'sub matches currentUser.id: ' + (jwtClaims?.sub === currentUser.id) +
+    (jwtError ? '\nJWT DECODE ERROR: ' + jwtError : '');
   console.warn('[OTCF submit diagnostic]\n' + diag);
   alert('DEBUG (temporary) — please screenshot this:\n\n' + diag);
 
