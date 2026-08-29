@@ -1232,7 +1232,7 @@ onCompanyChange(); // set default logo + serial on load
 
 
 /* ===================== SUPABASE / AUTH / SUBMISSIONS ===================== */
-const VERSION_STAMP = "MEG-OTCF v2026.08.29-23:15";
+const VERSION_STAMP = "MEG-OTCF v2026.08.29-23:30";
 document.title = VERSION_STAMP;
 document.getElementById('loginVersionStamp').textContent = VERSION_STAMP;
 document.getElementById('formVersionStamp').textContent = VERSION_STAMP;
@@ -1693,7 +1693,32 @@ async function submitClaim(){
     'sub matches currentUser.id: ' + (jwtClaims?.sub === currentUser.id) +
     (jwtError ? '\nJWT DECODE ERROR: ' + jwtError : '');
   console.warn('[OTCF submit diagnostic]\n' + diag);
-  alert('DEBUG (temporary) — please screenshot this:\n\n' + diag);
+
+  // Second stage: bypass supabase-js entirely and make a raw, manual HTTP
+  // request with the exact same token and payload — isolates whether the
+  // library itself is doing something unexpected with a request that's
+  // otherwise proven correct at every level (token, claims, RLS policy
+  // tested directly all check out, yet the real submit still fails).
+  let rawResult = null, rawError = null;
+  try{
+    const rawResp = await fetch(SUPABASE_URL + '/rest/v1/otcf_submissions', {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation'
+      },
+      body: JSON.stringify(payload)
+    });
+    const rawText = await rawResp.text();
+    rawResult = { status: rawResp.status, body: rawText };
+  }catch(e){ rawError = e.message; }
+  const diag2 =
+    '--- raw fetch (bypassing supabase-js) ---\n' +
+    (rawResult ? ('HTTP status: ' + rawResult.status + '\nbody: ' + rawResult.body) : ('fetch threw: ' + rawError));
+  console.warn('[OTCF submit diagnostic 2]\n' + diag2);
+  alert('DEBUG (temporary) — please screenshot this:\n\n' + diag + '\n\n' + diag2);
 
   try{
     let result;
