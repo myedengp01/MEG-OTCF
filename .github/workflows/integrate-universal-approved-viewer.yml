@@ -1,0 +1,41 @@
+name: Guarded OTCF approved viewer integration
+on:
+  push:
+    branches:
+      - feature/universal-claims-v2026-09-17-1430
+    paths:
+      - .github/workflows/integrate-universal-approved-viewer.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/universal-claims-v2026-09-17-1430
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify existing contract and addon syntax
+        run: |
+          node --check src/universal-claim-view-model.js
+          node --check src/universal-approved-viewer.js
+          MEG_FORM_CODE=otcf node tests/universal-status.contract.test.cjs
+      - name: Apply SHA-guarded integration on feature branch only
+        run: |
+          test "$(git branch --show-current)" = "feature/universal-claims-v2026-09-17-1430"
+          python3 scripts/integrate-universal-approved-viewer.py
+          git diff --check
+          grep -Fq '<script src="./src/universal-claim-view-model.js"></script>' index.html
+          grep -Fq '<script src="./src/universal-approved-viewer.js"></script>' index.html
+      - name: Commit only index.html to feature branch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- index.html
+          git diff --cached --quiet && exit 0
+          git commit -m 'feat(otcf): wire read-only canonical statuses into approved viewer (WIP)'
+          git push origin HEAD:refs/heads/feature/universal-claims-v2026-09-17-1430
