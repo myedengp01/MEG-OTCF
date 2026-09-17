@@ -1,0 +1,24 @@
+name: Universal claim status contract (OTCF)
+on:
+  push:
+    branches:
+      - feature/universal-claims-v2026-09-17-1430
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  status-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Read-only OTCF status adapter contract
+        env:
+          MEG_FORM_CODE: otcf
+        run: node tests/universal-status.contract.test.cjs
+      - name: Read-only OTCF Approved Claims viewer DOM contract
+        run: node tests/universal-approved-viewer.contract.test.cjs
