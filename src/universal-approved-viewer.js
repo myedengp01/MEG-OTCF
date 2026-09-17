@@ -21,7 +21,9 @@
       if(rows.length!==claims.length) return result;
       let reconciled;
       try{
-        reconciled=await root.MEGCreateOTCFClaimViewModel(root.sb).reconcile(claims);
+        // The existing page declares `sb` in a classic script; top-level const is not window.sb.
+        const client=typeof sb!=='undefined'?sb:root.sb;
+        reconciled=await root.MEGCreateOTCFClaimViewModel(client).reconcile(claims);
       }catch(e){
         console.error('Universal status reconciliation failed',e);
         reconciled=claims.map(c=>({...c,universalStatusAvailable:false}));
