@@ -1,41 +1,51 @@
 'use strict';
-const assert = require('node:assert/strict');
-const vm = require('node:vm');
-const fs = require('node:fs');
-const path = require('node:path');
-const form = process.env.MEG_FORM_CODE || 'otcf';
-const code = fs.readFileSync(path.join(__dirname, '..', 'src', 'universal-claim-view-model.js'), 'utf8');
-const context = {};
-vm.runInNewContext(code, context, { filename: 'universal-claim-view-model.js' });
-const factory = context[form === 'otcf' ? 'MEGCreateOTCFClaimViewModel' : 'MEGCreateSCFClaimViewModel'];
-assert.equal(typeof factory, 'function');
-let requests = [];
-const sb = {rpc: async (fn, args) => {
-  requests.push({ fn, args });
-  if (args.p_submission_id === 'PAID') return {data:[{form_code:form,submission_id:'PAID',workflow_status:'approved',display_status:'Claim Paid',payment_status:'done',claim_paid:true,can_mark_paid:false}],error:null};
-  if (args.p_submission_id === 'PENDING') return {data:[{form_code:form,submission_id:'PENDING',workflow_status:'approved',display_status:'Pending Payment',payment_status:'pending',claim_paid:false,can_mark_paid:true}],error:null};
-  if (args.p_submission_id === 'HIDDEN') return {data:[],error:null};
-  return {data:null,error:{message:'network error'}};
+const assert=require('node:assert/strict');
+const vm=require('node:vm');
+const fs=require('node:fs');
+const path=require('node:path');
+const code=fs.readFileSync(path.join(__dirname,'..','src','universal-claim-view-model.js'),'utf8');
+const context={};
+vm.runInNewContext(code,context,{filename:'universal-claim-view-model.js'});
+const factory=context.MEGCreateOTCFClaimViewModel;
+assert.equal(typeof factory,'function');
+const calls=[];
+const record=(id,paid)=>({form_code:'otcf',submission_id:id,workflow_status:'approved',display_status:paid?'Claim Paid':'Pending Payment',payment_status:paid?'done':'pending',claim_paid:paid,can_mark_paid:!paid});
+const sb={rpc:async(fn,args)=>{
+  calls.push({fn,args});
+  if(fn==='meg_forms_claim_status'){
+    if(args.p_submission_id==='ERROR') return {error:{message:'network failure'}};
+    return {data:args.p_submission_id==='HIDDEN'?[]:[record(args.p_submission_id,args.p_submission_id==='PAID')],error:null};
+  }
+  assert.equal(fn,'meg_forms_claim_status_batch');
+  if(args.p_submission_ids.includes('ERROR')) return {error:{message:'network failure'}};
+  return {data:args.p_submission_ids.filter(id=>id!=='HIDDEN').map(id=>record(id,id==='PAID')),error:null};
 }};
 (async()=>{
-  const api = factory(sb);
+  const api=factory(sb);
   assert.equal((await api.status('PAID')).claimPaid,true);
   assert.equal((await api.status('PENDING')).claimPaid,false);
   assert.equal(await api.status('HIDDEN'),null);
   await assert.rejects(()=>api.status('ERROR'));
-  await assert.rejects(()=>api.status('   '), {name:'TypeError'});
-  const result = await api.reconcile([
-    {id:'PAID',payment_confirmed:false},
-    {id:'PENDING',payment_confirmed:true},
-    {id:'HIDDEN',payment_confirmed:true},
-    {id:'ERROR',payment_confirmed:true}
-  ]);
-  assert.equal(result[0].universalStatus.claimPaid,true);
-  assert.equal(result[1].universalStatus.claimPaid,false);
-  assert.equal(result[2].universalStatusAvailable,false);
-  assert.equal(result[3].universalStatusAvailable,false);
-  assert.equal(result[2].universalStatus,null);
-  assert.equal(result[3].universalStatus,null);
-  assert.ok(requests.every(r=>r.fn==='meg_forms_claim_status' && r.args.p_form_code===form));
-  console.log(`PASS ${form}: 12 read-only status / stale-flag / failure assertions`);
+  await assert.rejects(()=>api.status('   '),{name:'TypeError'});
+  assert.equal((await api.reconcile([])).length,0);
+  const states=await api.reconcile([{id:'PAID',payment_confirmed:false},{id:'PENDING',payment_confirmed:true},{id:'HIDDEN',payment_confirmed:true}]);
+  assert.equal(states[0].universalStatus.claimPaid,true);
+  assert.equal(states[1].universalStatus.claimPaid,false);
+  assert.equal(states[2].universalStatusAvailable,false);
+  assert.equal(states[2].universalStatus,null);
+  assert.equal((await api.reconcile([{id:'ERROR',payment_confirmed:true}]))[0].universalStatusAvailable,false);
+  const hundred=Array.from({length:201},(_,i)=>({id:'ROW'+i}));
+  const batchCalls=calls.length;
+  const large=await api.reconcile(hundred);
+  assert.equal(large.length,201);
+  assert.ok(large.every(r=>r.universalStatusAvailable));
+  const chunks=calls.slice(batchCalls);
+  assert.deepEqual(chunks.map(c=>c.args.p_submission_ids.length),[100,100,1]);
+  assert.ok(chunks.every(c=>c.fn==='meg_forms_claim_status_batch'&&c.args.p_form_code==='otcf'));
+  const duplicateCalls=calls.length;
+  const duplicates=await api.reconcile([{id:'PAID'},{id:'PAID'}]);
+  assert.equal(duplicates.length,2);
+  assert.equal(calls[duplicateCalls].args.p_submission_ids.length,1);
+  assert.ok(calls.every(c=>c.args.p_form_code==='otcf'));
+  console.log('PASS otcf: single and batch statuses, 100-ID chunks, failure isolation and stale flags');
 })().catch(e=>{console.error(e);process.exitCode=1;});
