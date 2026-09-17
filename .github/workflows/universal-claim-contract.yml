@@ -20,3 +20,5 @@ jobs:
         env:
           MEG_FORM_CODE: otcf
         run: node tests/universal-status.contract.test.cjs
+      - name: Read-only OTCF Approved Claims viewer DOM contract
+        run: node tests/universal-approved-viewer.contract.test.cjs
