@@ -1,0 +1,21 @@
+name: Update UVN 20260920 1330
+on:
+  push:
+    paths: ['.github/workflows/uvn-20260920-1330.yml']
+permissions:
+  contents: write
+jobs:
+  uvn:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re,json
+          v='v2026.09.20:13:30';p=Path('index.html');s=p.read_text(encoding='utf-8');s,n=re.subn(r'(?i)(?:v|STP)?2026[.\-]0?[89][.\-]\d{1,2}[-:][0-2]?\d:[0-5]\d',v,s);p.write_text(s,encoding='utf-8');Path('version.json').write_text(json.dumps({'version':v,'uvn':v},indent=2)+'\n');print(n)
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html version.json
+          if ! git diff --cached --quiet; then git commit -m 'chore: display UVN v2026.09.20:13:30' && git push; fi
