@@ -1,10 +1,10 @@
-/* MEG-OTCF canonical payment view — v2026.09.22-13:00.
+/* MEG-OTCF canonical payment view — v2026.09.22-20:00.
  * Payment is written ONLY by the permission-checked, approval-guarded Supabase RPC.
  * This module never changes claim workflow status or deletes a claim.
  */
 (function(root){
  'use strict';
- const FORM='otcf', VERSION='v2026.09.22-13:00';
+ const FORM='otcf', VERSION='v2026.09.22-20:00';
  const pending=new Set(); let generation=0, scheduled=false;
  function client(){return typeof sb!=='undefined'?sb:root.sb;}
  function stamp(iso){if(!iso)return '';const d=new Date(iso);return Number.isNaN(d.getTime())?'':d.toLocaleString('en-GB');}
@@ -18,29 +18,31 @@
    const ids=refs.map(r=>r.id).filter(Boolean);
    if(!ids.length)return;
    try{
-     const [statusResult,permissionResult]=await Promise.all([
+     const [statusResult,permissionResult,dateResult]=await Promise.all([
        db.rpc('meg_forms_claim_status_batch',{p_form_code:FORM,p_submission_ids:ids}),
-       db.rpc('meg_forms_user_can_mark_paid',{p_form_code:FORM})
+       db.rpc('meg_forms_user_can_mark_paid',{p_form_code:FORM}),
+       db.rpc('meg_forms_payment_dates_batch',{p_form_code:FORM,p_submission_ids:ids})
      ]);
      if(statusResult.error)throw statusResult.error;
      const authorized=!permissionResult.error&&permissionResult.data===true;
+     const dates=dateResult.error?new Map():new Map((dateResult.data||[]).map(x=>[String(x.submission_id),x.payment_done_at]));
      const byId=new Map((statusResult.data||[]).map(s=>[String(s.submission_id),s]));
      if(token!==generation||rows().some((r,i)=>r!==refs[i]?.node)||rows().length!==refs.length)return;
      for(const {id,node} of refs){
        const state=byId.get(id), actions=node.querySelector('.viewer-claim-actions');
        if(!actions)continue;
        const badge=root.document.createElement('div');badge.className='meg-canonical-payment';
-       badge.style.cssText='font-size:12px;margin:5px 0;color:#17446b;font-weight:600;';
-       if(!state){badge.textContent='Payment status unavailable';actions.prepend(badge);continue;}
+       badge.style.cssText='display:inline-flex;align-items:center;font-size:12px;margin:0 6px;color:#17446b;font-weight:600;';
+       if(!state){badge.textContent='Payment status unavailable';actions.appendChild(badge);continue;}
        if(state.claim_paid){
-         badge.textContent='✓ Claim Paid'+(stamp(state.event_at)?' · '+stamp(state.event_at):'');
+         badge.textContent='✓ Claim Paid'+(stamp(dates.get(id))?' · '+stamp(dates.get(id)):' · Date unavailable');
          badge.style.color='#166534';
          // An approved claim that is already paid must not present a Delete control.
          node.querySelectorAll('[data-otcf-admin-delete]').forEach(el=>el.remove());
        }else{
          badge.textContent=String(state.display_status||'Pending Payment');
        }
-       actions.prepend(badge);
+       actions.appendChild(badge);
        if(!state.claim_paid&&authorized&&state.can_mark_paid&&!pending.has(id)){
          const button=root.document.createElement('button');button.type='button';
          button.className='meg-canonical-payment';button.textContent='✓ Claim Paid';
@@ -78,7 +80,7 @@
      }
    }catch(error){
      root.console?.warn?.('OTCF canonical payment status unavailable',error);
-     for(const {node} of refs){const actions=node.querySelector('.viewer-claim-actions');if(actions){const note=root.document.createElement('div');note.className='meg-canonical-payment';note.textContent='Payment status unavailable';actions.prepend(note);}}
+     for(const {node} of refs){const actions=node.querySelector('.viewer-claim-actions');if(actions){const note=root.document.createElement('div');note.className='meg-canonical-payment';note.textContent='Payment status unavailable';actions.appendChild(note);}}
    }
  }
  function schedule(){if(scheduled)return;scheduled=true;root.setTimeout(()=>{scheduled=false;void refresh();},30);}
