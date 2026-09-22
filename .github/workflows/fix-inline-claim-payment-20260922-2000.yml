@@ -1,0 +1,51 @@
+name: Fix OTCF Inline Claim Payment 20260922-2000
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/fix-inline-claim-payment-20260922-2000.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: true
+      - name: Replace floating UI with per-claim status
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html');s=p.read_text(encoding='utf-8')
+          old='<script src="./universal-claim-payment-center.js?v=20260922-2000" defer></script>'
+          assert s.count(old)==1,'Unexpected floating module reference'
+          assert 'universal-payment-ui.js?v=20260922-2000' not in s
+          s=s.replace(old,'<script src="./universal-payment-ui.js?v=20260922-2000" defer></script>')
+          p.write_text(s,encoding='utf-8')
+          p=Path('universal-payment-ui.js');s=p.read_text(encoding='utf-8')
+          assert "const FORM='otcf', VERSION='v2026.09.22-13:00';" in s
+          s=s.replace("const FORM='otcf', VERSION='v2026.09.22-13:00';","const FORM='otcf', VERSION='v2026.09.22-20:00';")
+          s=s.replace('v2026.09.22-13:00.','v2026.09.22-20:00.')
+          old="db.rpc('meg_forms_user_can_mark_paid',{p_form_code:FORM})\n     ]);"
+          new="db.rpc('meg_forms_user_can_mark_paid',{p_form_code:FORM}),\n       db.rpc('meg_forms_payment_dates_batch',{p_form_code:FORM,p_submission_ids:ids})\n     ]);"
+          assert s.count(old)==1,'Payment RPC insertion point changed'
+          s=s.replace('const [statusResult,permissionResult]=await Promise.all([','const [statusResult,permissionResult,dateResult]=await Promise.all([')
+          s=s.replace(old,new)
+          s=s.replace('const authorized=!permissionResult.error&&permissionResult.data===true;','const authorized=!permissionResult.error&&permissionResult.data===true;\n     const dates=dateResult.error?new Map():new Map((dateResult.data||[]).map(x=>[String(x.submission_id),x.payment_done_at]));')
+          old="badge.textContent='✓ Claim Paid'+(stamp(state.event_at)?' · '+stamp(state.event_at):'');"
+          new="badge.textContent='✓ Claim Paid'+(stamp(dates.get(id))?' · '+stamp(dates.get(id)):' · Date unavailable');"
+          assert s.count(old)==1,'Payment date rendering changed';s=s.replace(old,new)
+          s=s.replace("badge.style.cssText='font-size:12px;margin:5px 0;color:#17446b;font-weight:600;';","badge.style.cssText='display:inline-flex;align-items:center;font-size:12px;margin:0 6px;color:#17446b;font-weight:600;';")
+          s=s.replace('actions.prepend(badge);','actions.appendChild(badge);')
+          s=s.replace("const note=root.document.createElement('div');note.className='meg-canonical-payment';note.textContent='Payment status unavailable';actions.prepend(note);","const note=root.document.createElement('div');note.className='meg-canonical-payment';note.textContent='Payment status unavailable';actions.appendChild(note);")
+          p.write_text(s,encoding='utf-8')
+          assert 'event_at)?' not in s and 'meg_forms_payment_dates_batch' in s
+          PY
+          node --check universal-payment-ui.js
+          git diff --check
+          git add index.html universal-payment-ui.js
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git diff --cached --quiet || (git commit -m 'fix(OTCF): inline Claim Paid with verified payment date v2026.09.22-20:00' && git push origin main)
