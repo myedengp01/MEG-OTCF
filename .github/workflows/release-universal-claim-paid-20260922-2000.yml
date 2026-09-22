@@ -1,0 +1,43 @@
+name: Release OTCF Universal Claim Paid 20260922-2000
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/release-universal-claim-paid-20260922-2000.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: true
+      - name: Install pinned shared payment module
+        run: |
+          curl --fail --location --retry 3 --max-time 30 'https://raw.githubusercontent.com/myedengp01/DB-MEG-FORMS/85fa48b98e300ad691f9e0359281bf629b5fde8f/src/universal-claim-payment-center.js' -o universal-claim-payment-center.js
+          test -s universal-claim-payment-center.js
+          node --check universal-claim-payment-center.js
+      - name: Wire OTCF and synchronize UVN
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          p=Path('index.html'); s=p.read_text(encoding='utf-8')
+          old='v2026.09.20:13:30'; new='v2026.09.22-20:00'
+          assert old in s, 'Unexpected OTCF version; refusing unsafe patch'
+          assert '<html lang="en">' in s and '</body>' in s
+          assert 'universal-claim-payment-center.js' not in s, 'Module already wired; review first'
+          s=s.replace(old,new).replace('<html lang="en">','<html lang="en" data-meg-form="otcf">',1)
+          s=s.replace('</body>','<script src="./universal-claim-payment-center.js?v=20260922-2000" defer></script>\n</body>',1)
+          assert s.count('data-meg-form="otcf"')==1 and s.count('universal-claim-payment-center.js')==1
+          p.write_text(s,encoding='utf-8')
+          Path('version.json').write_text(json.dumps({'version':new,'uvn':new},indent=2)+'\n',encoding='utf-8')
+          assert json.loads(Path('version.json').read_text())['uvn']==new
+          PY
+          git diff --check
+          git add index.html version.json universal-claim-payment-center.js
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git diff --cached --quiet || (git commit -m 'release(OTCF): universal Claim Paid v2026.09.22-20:00' && git push origin main)
