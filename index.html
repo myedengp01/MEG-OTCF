@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MEG-OTCF v2026.09.22-20:00</title>
+<title>MEG-OTCF v2026.10.03-21:55</title>
 <style>
   :root{
     --pink:#f7b8cc;
@@ -262,12 +262,16 @@
     padding:2px 2px;
     border:1px solid #ccc;
   }
-  td.total-cell input{
+  td.total-cell input,
+  td.meal-cell input,
+  td.actual-cell input{
     width:60px;
     border:1px solid #ccc;
     padding:2px;
     text-align:center;
   }
+  td.meal-cell, td.actual-cell{ width:72px; }
+  td.actual-cell input{ background:#f4f7fb; font-weight:700; color:var(--navy-dark); }
   td.remarks-cell{
     width:240px;
   }
@@ -764,7 +768,7 @@
       <input id="sameOtHours" type="checkbox">
       Use the same OT Hours and Remarks for all Claim Type
     </label>
-    <span class="sync-note">Auto-detects your first-entered OT row (Claim Type + From time) as the template, and copies its OT From / To / Remarks to every other row that already has a Claim Type selected — marked 🔗. Values stay manually editable.</span>
+    <span class="sync-note">Auto-detects your first-entered OT row (Claim Type + From time) as the template, and copies its OT From / To / Remarks to every other row that already has a Claim Type selected — marked 🔗. Values stay manually editable. Meal Time remains row-specific and is never auto-copied.</span>
   </div>
 
   <div class="table-wrap">
@@ -777,6 +781,8 @@
         <th rowspan="2">Claim Type</th>
         <th colspan="2">OT Hrs</th>
         <th rowspan="2">Total Hrs</th>
+        <th rowspan="2">Meal Time</th>
+        <th rowspan="2">Actual Hrs</th>
         <th rowspan="2">Remarks</th>
       </tr>
       <tr>
@@ -788,7 +794,7 @@
     </tbody>
     <tfoot>
       <tr>
-        <td colspan="6">Total Hours :</td>
+        <td colspan="8">Total OT Hours :</td>
         <td id="grandTotal">0.00</td>
         <td></td>
       </tr>
@@ -1024,14 +1030,39 @@ function buildTable(){
     tdTo.appendChild(toInput);
     tr.appendChild(tdTo);
 
-    // Total hrs
+    // Total hrs (elapsed OT span before meal/rest deduction)
     const tdTotal = document.createElement("td");
     tdTotal.className = "total-cell";
     const totalInput = document.createElement("input");
     totalInput.type = "number";
     totalInput.step = "0.01";
+    totalInput.min = "0";
     tdTotal.appendChild(totalInput);
     tr.appendChild(tdTotal);
+
+    // Meal Time — deductible break in decimal hours, e.g. 1.00
+    const tdMeal = document.createElement("td");
+    tdMeal.className = "meal-cell";
+    const mealInput = document.createElement("input");
+    mealInput.type = "number";
+    mealInput.step = "0.01";
+    mealInput.min = "0";
+    mealInput.value = "0.00";
+    mealInput.inputMode = "decimal";
+    tdMeal.appendChild(mealInput);
+    tr.appendChild(tdMeal);
+
+    // Actual Hrs = Total Hrs - Meal Time
+    const tdActual = document.createElement("td");
+    tdActual.className = "actual-cell";
+    const actualInput = document.createElement("input");
+    actualInput.type = "number";
+    actualInput.step = "0.01";
+    actualInput.min = "0";
+    actualInput.readOnly = true;
+    actualInput.value = "0.00";
+    tdActual.appendChild(actualInput);
+    tr.appendChild(tdActual);
 
     // Remarks
     const tdRemarks = document.createElement("td");
@@ -1053,6 +1084,19 @@ function buildTable(){
         totalInput.value = (diff/60).toFixed(2);
       }
 
+      // Actual Hrs is always Total Hrs less Meal Time.
+      const totalVal = parseFloat(totalInput.value);
+      const mealVal = parseFloat(mealInput.value);
+      const safeTotal = isNaN(totalVal) ? 0 : Math.max(0,totalVal);
+      const safeMeal = isNaN(mealVal) ? 0 : Math.max(0,mealVal);
+      if(safeMeal > safeTotal){
+        mealInput.classList.add("error-cell");
+        actualInput.value = "0.00";
+      }else{
+        mealInput.classList.remove("error-cell");
+        actualInput.value = Math.max(0,safeTotal-safeMeal).toFixed(2);
+      }
+
       // Auto-fill Claim Type only if still unset (-- Select --)
       if((fStr || tStr) && claimSelect.value === "" && !phCheckbox.checked){
         if(dow === 6)      claimSelect.value = "Off Day";
@@ -1065,7 +1109,7 @@ function buildTable(){
       const whTo = timeToMinutes(document.getElementById("whTo").value);
       const overlap = rangesOverlap(fMin, tMin, whFrom, whTo);
 
-      [tdFrom, tdTo, tdTotal].forEach(cell=>{
+      [tdFrom, tdTo, tdTotal, tdActual].forEach(cell=>{
         cell.classList.toggle("error-cell", overlap);
       });
 
@@ -1074,7 +1118,13 @@ function buildTable(){
 
     fromInput.addEventListener("change", recalcRow);
     toInput.addEventListener("change", recalcRow);
-    totalInput.addEventListener("change", updateGrandTotal);
+    totalInput.addEventListener("change", recalcRow);
+    mealInput.addEventListener("input", recalcRow);
+    mealInput.addEventListener("change", ()=>{
+      const v=parseFloat(mealInput.value);
+      mealInput.value=(isNaN(v)?0:Math.max(0,v)).toFixed(2);
+      recalcRow();
+    });
 
     // Any row can be the sync source or a sync target — whichever earliest-dated
     // row is the first to have both a Claim Type and an OT From time becomes
@@ -1181,7 +1231,7 @@ function syncOtHoursAcrossRows(){
 }
 
 function updateGrandTotal(){
-  const inputs = document.querySelectorAll("#tableBody .total-cell input");
+  const inputs = document.querySelectorAll("#tableBody .actual-cell input");
   let sum = 0;
   inputs.forEach(inp=>{
     const v = parseFloat(inp.value);
@@ -1198,13 +1248,14 @@ function recalcAllRowsForWorkingHours(){
     const tdFrom = tr.querySelector(".time-cell:nth-child(5)");
     const tdTo = tr.querySelector(".time-cell:nth-child(6)");
     const tdTotal = tr.querySelector(".total-cell");
+    const tdActual = tr.querySelector(".actual-cell");
     if(!fromInput || !toInput) return;
     const fMin = timeToMinutes(fromInput.value);
     const tMin = timeToMinutes(toInput.value);
     const whFrom = timeToMinutes(document.getElementById("whFrom").value);
     const whTo = timeToMinutes(document.getElementById("whTo").value);
     const overlap = rangesOverlap(fMin, tMin, whFrom, whTo);
-    [tdFrom, tdTo, tdTotal].forEach(cell=>{
+    [tdFrom, tdTo, tdTotal, tdActual].forEach(cell=>{
       if(cell) cell.classList.toggle("error-cell", overlap);
     });
   });
@@ -1262,7 +1313,7 @@ onCompanyChange(); // set default logo + serial on load
 
 
 /* ===================== SUPABASE / AUTH / SUBMISSIONS ===================== */
-const VERSION_STAMP = "MEG-OTCF v2026.09.22-20:00";
+const VERSION_STAMP = "MEG-OTCF v2026.10.03-21:55";
 document.title = VERSION_STAMP;
 document.getElementById('loginVersionStamp').textContent = VERSION_STAMP;
 if(window.megOtcfUpdateDocumentRef) window.megOtcfUpdateDocumentRef();
@@ -1543,6 +1594,8 @@ function collectOtcfPayload(status){
     const claimSelect = tr.querySelector('.claim-cell select');
     const timeInputs = tr.querySelectorAll('.time-cell input');
     const totalInput = tr.querySelector('.total-cell input');
+    const mealInput = tr.querySelector('.meal-cell input');
+    const actualInput = tr.querySelector('.actual-cell input');
     const remarksInput = tr.querySelector('.remarks-cell input');
     rows.push({
       date: dateCell ? dateCell.textContent : '',
@@ -1552,6 +1605,8 @@ function collectOtcfPayload(status){
       from: timeInputs[0] ? timeInputs[0].value : '',
       to: timeInputs[1] ? timeInputs[1].value : '',
       totalHrs: totalInput ? totalInput.value : '',
+      mealTime: mealInput ? mealInput.value : '0.00',
+      actualHrs: actualInput ? actualInput.value : (totalInput ? totalInput.value : ''),
       remarks: remarksInput ? remarksInput.value : ''
     });
   });
@@ -1578,6 +1633,7 @@ function formHasUnsavedWork(){
   return [...document.querySelectorAll('#tableBody tr')].some(tr =>
     tr.querySelector('.claim-cell select')?.value ||
     tr.querySelector('.time-cell input')?.value ||
+    (parseFloat(tr.querySelector('.meal-cell input')?.value||'0')>0) ||
     tr.querySelector('.remarks-cell input')?.value
   );
 }
@@ -1662,6 +1718,8 @@ async function selectDraftToLoad(index){
     const claimSelect = tr.querySelector('.claim-cell select');
     const timeInputs = tr.querySelectorAll('.time-cell input');
     const totalInput = tr.querySelector('.total-cell input');
+    const mealInput = tr.querySelector('.meal-cell input');
+    const actualInput = tr.querySelector('.actual-cell input');
     const remarksInput = tr.querySelector('.remarks-cell input');
     if(phCheckbox){ phCheckbox.checked = Boolean(item.ph); tr.classList.toggle('ph-row', phCheckbox.checked); }
     if(claimSelect) claimSelect.value = item.claimType || '';
@@ -1672,6 +1730,14 @@ async function selectDraftToLoad(index){
     // so the saved figure may not match what a fresh recalculation would
     // produce, and the saved one is the one that's actually correct.
     if(totalInput) totalInput.value = item.totalHrs || '';
+    const legacyTotal = parseFloat(item.totalHrs);
+    const savedMeal = parseFloat(item.mealTime);
+    const savedActual = parseFloat(item.actualHrs);
+    if(mealInput) mealInput.value = (isNaN(savedMeal)?0:Math.max(0,savedMeal)).toFixed(2);
+    if(actualInput){
+      const fallbackActual = isNaN(legacyTotal)?0:Math.max(0,legacyTotal-(isNaN(savedMeal)?0:savedMeal));
+      actualInput.value = (isNaN(savedActual)?fallbackActual:Math.max(0,savedActual)).toFixed(2);
+    }
     if(remarksInput) remarksInput.value = item.remarks || '';
   });
   updateGrandTotal();
@@ -2014,6 +2080,8 @@ function openApprovalReview(id){
       <td>${escapeHtmlOtcf(it.from)}</td>
       <td>${escapeHtmlOtcf(it.to)}</td>
       <td>${escapeHtmlOtcf(it.totalHrs)}</td>
+      <td>${escapeHtmlOtcf(it.mealTime==null?'0.00':it.mealTime)}</td>
+      <td>${escapeHtmlOtcf(it.actualHrs==null?(it.totalHrs||''):it.actualHrs)}</td>
       <td class="remarks-col">${escapeHtmlOtcf(it.remarks)}</td>
     </tr>`;
   }).join('');
@@ -2031,8 +2099,8 @@ function openApprovalReview(id){
       <div><b>Total Hours</b>${Number(sub.total_hours||0).toFixed(2)}</div>
     </div>
     <table class="review-table">
-      <thead><tr><th>Date</th><th>Day</th><th>PH</th><th>Claim Type</th><th>From</th><th>To</th><th>Total Hrs</th><th>Remarks</th></tr></thead>
-      <tbody>${rowsHtml || '<tr><td colspan="8" style="color:var(--muted);">No line items.</td></tr>'}</tbody>
+      <thead><tr><th>Date</th><th>Day</th><th>PH</th><th>Claim Type</th><th>From</th><th>To</th><th>Total Hrs</th><th>Meal Time</th><th>Actual Hrs</th><th>Remarks</th></tr></thead>
+      <tbody>${rowsHtml || '<tr><td colspan="10" style="color:var(--muted);">No line items.</td></tr>'}</tbody>
     </table>`;
 
   // Reset the reason box / PDF actions / footer to their default state each time the modal opens
@@ -2255,6 +2323,8 @@ function makeReadOnlySheetHtml(sub){
       <td class="time-cell">${escapeHtmlOtcf(it.from)}</td>
       <td class="time-cell">${escapeHtmlOtcf(it.to)}</td>
       <td class="total-cell">${escapeHtmlOtcf(it.totalHrs)}</td>
+      <td class="meal-cell">${escapeHtmlOtcf(it.mealTime==null?'0.00':it.mealTime)}</td>
+      <td class="actual-cell">${escapeHtmlOtcf(it.actualHrs==null?(it.totalHrs||''):it.actualHrs)}</td>
       <td class="remarks-cell">${escapeHtmlOtcf(it.remarks)}</td>
     </tr>`;
   }).join('');
@@ -2292,12 +2362,12 @@ function makeReadOnlySheetHtml(sub){
       <thead>
         <tr>
           <th rowspan="2">Date</th><th rowspan="2">Day</th><th rowspan="2">PH</th><th rowspan="2">Claim Type</th>
-          <th colspan="2">OT Hrs</th><th rowspan="2">Total Hrs</th><th rowspan="2">Remarks</th>
+          <th colspan="2">OT Hrs</th><th rowspan="2">Total Hrs</th><th rowspan="2">Meal Time</th><th rowspan="2">Actual Hrs</th><th rowspan="2">Remarks</th>
         </tr>
         <tr><th>From</th><th>To</th></tr>
       </thead>
       <tbody>${rowsHtml}</tbody>
-      <tfoot><tr><td colspan="6">Total Hours :</td><td>${grandTotal}</td><td></td></tr></tfoot>
+      <tfoot><tr><td colspan="8">Total OT Hours :</td><td>${grandTotal}</td><td></td></tr></tfoot>
     </table>
     </div>
     <div class="sig-grid">
@@ -2362,7 +2432,7 @@ function generateDisapprovalSummaryPdf(sub, reason){
 
   pdf.setFont(undefined, 'bold');
   pdf.text('Date', 15, y); pdf.text('Day', 32, y); pdf.text('Claim Type', 52, y);
-  pdf.text('From', 90, y); pdf.text('To', 110, y); pdf.text('Hrs', 128, y); pdf.text('Remarks', 145, y);
+  pdf.text('From', 82, y); pdf.text('To', 100, y); pdf.text('Total', 116, y); pdf.text('Meal', 132, y); pdf.text('Actual', 148, y); pdf.text('Remarks', 166, y);
   y += 5;
   pdf.setDrawColor(180); pdf.line(15, y, 195, y); y += 4;
   pdf.setFont(undefined, 'normal'); pdf.setFontSize(9);
@@ -2372,10 +2442,12 @@ function generateDisapprovalSummaryPdf(sub, reason){
     pdf.text(String(it.date || ''), 15, y);
     pdf.text(String(it.day || ''), 32, y);
     pdf.text(String(it.claimType || ''), 52, y);
-    pdf.text(String(it.from || ''), 90, y);
-    pdf.text(String(it.to || ''), 110, y);
-    pdf.text(String(it.totalHrs || ''), 128, y);
-    pdf.text(String(it.remarks || '').slice(0, 28), 145, y);
+    pdf.text(String(it.from || ''), 82, y);
+    pdf.text(String(it.to || ''), 100, y);
+    pdf.text(String(it.totalHrs || ''), 116, y);
+    pdf.text(String(it.mealTime==null?'0.00':it.mealTime), 132, y);
+    pdf.text(String(it.actualHrs==null?(it.totalHrs||''):it.actualHrs), 148, y);
+    pdf.text(String(it.remarks || '').slice(0, 16), 166, y);
     y += 5.5;
   });
 
@@ -2469,10 +2541,10 @@ window.addEventListener('load', async ()=>{
 });
 </script>
 <script id="meg-forms-v1130-addon">
-/* MEG-OTCF v2026.09.22-20:00 — entity approver scope + 2dp + original-form approved PDF */
+/* MEG-OTCF v2026.10.03-21:55 — entity approver scope + 2dp + original-form approved PDF */
 (function(){
   'use strict';
-  const BUILD_VERSION = 'MEG-OTCF v2026.09.22-20:00';
+  const BUILD_VERSION = 'MEG-OTCF v2026.10.03-21:55';
   const SCOPE_OPTIONS = [
     ['', '-- Select scope --'],
     ['myeden', 'MyEden Group + MyEden Edu Hub Sdn Bhd'],
@@ -2724,7 +2796,7 @@ window.addEventListener('load', async ()=>{
 })();
 </script>
 <script id="meg-forms-v20260903-1130-maker-checker">
-/* MEG-OTCF v2026.09.22-20:00 — Approver claimant -> Admin-only maker/checker routing */
+/* MEG-OTCF v2026.10.03-21:55 — Approver claimant -> Admin-only maker/checker routing */
 (function(){
   'use strict';
 
@@ -2857,7 +2929,7 @@ window.addEventListener('load', async ()=>{
 </script>
 
 <script id="meg-forms-v20260903-1215-submit-user-directory">
-/* MEG-OTCF v2026.09.22-20:00 — verified submit transition + admin user directory */
+/* MEG-OTCF v2026.10.03-21:55 — verified submit transition + admin user directory */
 (function(){
   'use strict';
 
@@ -2907,7 +2979,7 @@ window.addEventListener('load', async ()=>{
 
 
 <script id="meg-dashboard-deeplink-hotfix-otcf">
-/* MEG-FORMS Dashboard deep-link compatibility hotfix v2026.09.22-20:00 */
+/* MEG-FORMS Dashboard deep-link compatibility hotfix v2026.10.03-21:55 */
 (function(){
   'use strict';
   if (window.__MEG_DASH_DEEPLINK_OTCF__) return;
@@ -3010,7 +3082,7 @@ window.addEventListener('load', async ()=>{
 
 /* v16:45 — persisted OTCF identity lock */
 (function(){
-  const RELEASE='v2026.09.22-20:00';
+  const RELEASE='v2026.10.03-21:55';
   function setLocked(locked){
     ['companySelect','serialYYYYMM','serialDD','serialHHMM'].forEach(id=>{
       const el=document.getElementById(id);
@@ -3062,13 +3134,12 @@ window.addEventListener('load', async ()=>{
       if(used) anyUsed = true;
 
       const total = tr.querySelector('.total-cell input');
-      if(!used && total){
-        // Only unused rows are blanked.
-        // A used/incomplete row is allowed to show 0.00 for validation.
-        total.value = '';
-        total.classList.add('otcf-unused-total');
-      }else if(total){
-        total.classList.remove('otcf-unused-total');
+      const meal = tr.querySelector('.meal-cell input');
+      const actual = tr.querySelector('.actual-cell input');
+      if(!used){
+        [total,meal,actual].forEach(inp=>{ if(inp){ inp.value=''; inp.classList.add('otcf-unused-total'); } });
+      }else{
+        [total,meal,actual].forEach(inp=>{ if(inp) inp.classList.remove('otcf-unused-total'); });
       }
     });
 
@@ -3081,23 +3152,20 @@ window.addEventListener('load', async ()=>{
   function cleanReadOnlyRoot(root){
     if(!root) return;
 
-    // Read-only / approval / PDF tables normally have:
-    // Date | Day | PH | Claim Type | From | To | Total Hrs | Remarks
+    // Read-only / approval / PDF tables:
+    // Date | Day | PH | Claim Type | From | To | Total Hrs | Meal Time | Actual Hrs | Remarks
     root.querySelectorAll('tbody tr').forEach(tr=>{
       const td = [...tr.querySelectorAll(':scope > td')];
-      if(td.length < 8) return;
+      if(td.length < 10) return;
 
       const ph = String(td[2]?.textContent || '').trim();
       const claim = String(td[3]?.textContent || '').trim();
       const from = String(td[4]?.textContent || '').trim();
       const to = String(td[5]?.textContent || '').trim();
-      const total = String(td[6]?.textContent || '').trim();
-      const remarks = String(td[7]?.textContent || '').trim();
+      const remarks = String(td[9]?.textContent || '').trim();
 
       const used = !!(ph || claim || from || to || remarks);
-      if(!used && /^(?:0+(?:\.0+)?)$/.test(total)){
-        td[6].textContent = '';
-      }
+      if(!used){ [6,7,8].forEach(i=>{ if(td[i]) td[i].textContent=''; }); }
     });
   }
 
@@ -3178,7 +3246,7 @@ window.addEventListener('load', async ()=>{
 </script>
 
 <script id="meg-otcf-admin-delete-r1">
-/* MEG-OTCF v2026.09.22-20:00 — Admin-only Approved Claim deletion */
+/* MEG-OTCF v2026.10.03-21:55 — Admin-only Approved Claim deletion */
 (function(){
   'use strict';
 
