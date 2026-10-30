@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MEG-OTCF v2026.10.03-21:55</title>
+<title>MEG-OTCF v2026.10.30-21:40</title>
 <style>
   :root{
     --pink:#f7b8cc;
@@ -537,6 +537,18 @@
   .serial-display{font-weight:700;color:var(--navy);font-size:13px;margin-top:2px;}
   .serial-edit{display:flex;gap:4px;justify-content:flex-end;margin-top:6px;flex-wrap:wrap;}
   .serial-edit input{width:64px;font-size:11px;padding:3px 4px;border:1px solid var(--line);border-radius:4px;text-align:center;}
+  /* time slots: more than one OT time on the same day (v2026.10.30) */
+  .slot-btn{border:1px solid #9bb3d1;background:#fff;color:#1f4e8c;border-radius:4px;font-size:11px;font-weight:700;line-height:1;padding:3px 6px;cursor:pointer;margin-left:4px;vertical-align:middle}
+  .slot-btn:disabled{opacity:.35;cursor:default}
+  td.remarks-cell input{width:calc(100% - 30px)}
+  tr.slot-row td{border-top:1px dashed #b9c6d8}
+  tr.slot-row td.slot-date{color:#7a8aa0;text-align:right;font-weight:700}
+  tr.slot-row .slot-note{font-size:10px;color:#7a8aa0}
+  .slot-clash{background:#ffd6d6 !important;outline:2px solid #d33;outline-offset:-2px}
+  .otcf-warn{margin-top:8px;padding:8px 10px;border:1px solid #e0b252;background:#fff7e0;border-radius:6px;font-size:13px;color:#6b4a00}
+  .otcf-warn ul{margin:4px 0 0 18px;padding:0}
+  .otcf-warn.bad{border-color:#d33;background:#fff0f0;color:#8a1010}
+  @media print{ .slot-btn,.otcf-warn{display:none !important} }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -762,6 +774,7 @@
     <div><label for="whTo">To:</label><input type="time" id="whTo" value="18:00"></div>
     <div class="note" style="margin:0;">OT hours overlapping this range will be flagged as an error.</div>
   </div>
+  <div class="note no-print" style="margin:4px 0 0;">Came in early <b>and</b> stayed late on the same day? Press <b>+</b> beside the remarks to add another OT time for that day (up to 3 a day), each with its own meal time and remarks.</div>
 
   <div class="sync-bar no-print">
     <label class="sync-control" for="sameOtHours">
@@ -801,6 +814,7 @@
     </tfoot>
   </table>
   </div>
+  <div id="otcfLimitWarn" class="no-print"></div>
 
   <div class="no-print" style="margin-top:10px;font-size:13px;">
     📘 <a href="https://calexcl.github.io/OTCF/OTCF_User_Manual.html" target="_blank" rel="noopener">View User Manual</a>
@@ -1071,7 +1085,14 @@ function buildTable(){
     remarksInput.type = "text";
     remarksInput.placeholder = "";
     tdRemarks.appendChild(remarksInput);
+    const addSlotBtn = document.createElement("button");
+    addSlotBtn.type = "button"; addSlotBtn.className = "slot-btn slot-add no-print"; addSlotBtn.textContent = "+";
+    addSlotBtn.title = "Add another OT time on this day (e.g. came in early and also stayed late) — up to 3 a day";
+    addSlotBtn.setAttribute("aria-label", "Add another OT time on day " + d);
+    addSlotBtn.addEventListener("click", ()=>{ const r = addSlotRow(tr); if(r) r.querySelector(".time-cell input").focus(); });
+    tdRemarks.appendChild(addSlotBtn);
     tr.appendChild(tdRemarks);
+    tr.classList.add("day-row");
 
     function recalcRow(){
       const fStr = fromInput.value, tStr = toInput.value;
@@ -1113,8 +1134,13 @@ function buildTable(){
         cell.classList.toggle("error-cell", overlap);
       });
 
+      checkDaySlots(tr);
       updateGrandTotal();
     }
+    // for the extra time slots of this day: they share its date, PH tick and claim type
+    tr._otcf = { dow, claimSelect, phCheckbox, slotChanged(){ if((otcfDaySlots(tr).some(r=>r.querySelector(".time-cell input").value)) && claimSelect.value === "" && !phCheckbox.checked){
+        claimSelect.value = dow === 6 ? "Off Day" : dow === 0 ? "Rest Day" : "Normal"; }
+      checkDaySlots(tr); updateGrandTotal(); onOtRowFieldEdited(tr); } };
 
     fromInput.addEventListener("change", recalcRow);
     toInput.addEventListener("change", recalcRow);
@@ -1143,6 +1169,109 @@ function buildTable(){
   }
   otHoursSourceRow = null; // table was rebuilt — forget any previously detected source row
   updateGrandTotal();
+}
+
+// ---------- More than one OT time on the same day (up to 3 per day) ----------
+const OTCF_MAX_SLOTS = 3;
+function otcfDaySlots(dayTr){
+  const out = []; let n = dayTr ? dayTr.nextElementSibling : null;
+  while(n && n.classList.contains("slot-row")){ out.push(n); n = n.nextElementSibling; }
+  return out;
+}
+function otcfDayOf(tr){ let n = tr; while(n && n.classList.contains("slot-row")) n = n.previousElementSibling; return n; }
+function refreshSlotButtons(dayTr){
+  const slots = otcfDaySlots(dayTr);
+  const btn = dayTr.querySelector(".slot-add"); if(btn) btn.disabled = slots.length >= OTCF_MAX_SLOTS - 1;
+  slots.forEach((r,i)=>{ r.dataset.slot = String(i+2); const m = r.querySelector(".slot-date"); if(m) m.textContent = "↳" + (i+2); });
+}
+/** Adds an extra time slot under a day row; returns the new row, or null when the day already has 3. */
+function addSlotRow(dayTr, vals){
+  if(!dayTr || !dayTr._otcf) return null;
+  const slots = otcfDaySlots(dayTr);
+  if(slots.length >= OTCF_MAX_SLOTS - 1) return null;
+  const tr = document.createElement("tr");
+  tr.className = "slot-row" + (dayTr.classList.contains("weekend") ? " weekend" : "") + (dayTr.classList.contains("ph-row") ? " ph-row" : "");
+  const cell = (cls, text)=>{ const td = document.createElement("td"); td.className = cls; if(text != null) td.textContent = text; tr.appendChild(td); return td; };
+  cell("date-cell slot-date", "↳"); cell("day-cell", ""); cell("ph-cell", "");
+  const tdClaim = cell("claim-cell slot-claim"); const note = document.createElement("span"); note.className = "slot-note"; note.textContent = "same day"; tdClaim.appendChild(note);
+  const num = (cls, ro)=>{ const td = cell(cls); const i = document.createElement("input"); i.type = "number"; i.step = "0.01"; i.min = "0"; if(ro) i.readOnly = true; td.appendChild(i); return [td, i]; };
+  const tdFrom = cell("time-cell"); const fromInput = document.createElement("input"); fromInput.type = "time"; tdFrom.appendChild(fromInput);
+  const tdTo = cell("time-cell"); const toInput = document.createElement("input"); toInput.type = "time"; tdTo.appendChild(toInput);
+  const [tdTotal, totalInput] = num("total-cell");
+  const [, mealInput] = num("meal-cell"); mealInput.value = "0.00"; mealInput.inputMode = "decimal";
+  const [tdActual, actualInput] = num("actual-cell", true); actualInput.value = "0.00";
+  const tdRemarks = cell("remarks-cell"); const remarksInput = document.createElement("input"); remarksInput.type = "text"; tdRemarks.appendChild(remarksInput);
+  const del = document.createElement("button"); del.type = "button"; del.className = "slot-btn slot-del no-print"; del.textContent = "×"; del.title = "Remove this time"; del.setAttribute("aria-label", "Remove this time");
+  del.addEventListener("click", ()=>{ tr.remove(); refreshSlotButtons(dayTr); dayTr._otcf.slotChanged(); });
+  tdRemarks.appendChild(del);
+  function recalc(){
+    const fMin = timeToMinutes(fromInput.value), tMin = timeToMinutes(toInput.value);
+    if(fMin!==null && tMin!==null){ let diff = tMin - fMin; if(diff < 0) diff += 24*60; totalInput.value = (diff/60).toFixed(2); }
+    const t = Math.max(0, parseFloat(totalInput.value) || 0), m = Math.max(0, parseFloat(mealInput.value) || 0);
+    mealInput.classList.toggle("error-cell", m > t); actualInput.value = (m > t ? 0 : t - m).toFixed(2);
+    const overlap = rangesOverlap(fMin, tMin, timeToMinutes(document.getElementById("whFrom").value), timeToMinutes(document.getElementById("whTo").value));
+    [tdFrom, tdTo, tdTotal, tdActual].forEach(c=>c.classList.toggle("error-cell", overlap));
+    dayTr._otcf.slotChanged();
+  }
+  fromInput.addEventListener("change", recalc); toInput.addEventListener("change", recalc); totalInput.addEventListener("change", recalc);
+  mealInput.addEventListener("input", recalc);
+  mealInput.addEventListener("change", ()=>{ const v = parseFloat(mealInput.value); mealInput.value = (isNaN(v)?0:Math.max(0,v)).toFixed(2); recalc(); });
+  remarksInput.addEventListener("input", ()=>onOtRowFieldEdited(dayTr));
+  (slots.length ? slots[slots.length-1] : dayTr).after(tr);
+  refreshSlotButtons(dayTr);
+  if(vals){ fillOtcfTimes(tr, vals); recalc(); }
+  return tr;
+}
+/** Times, total, meal and remarks into a day or slot row (as saved; Total Hrs may have been typed over). */
+function fillOtcfTimes(tr, item){
+  const t = tr.querySelectorAll(".time-cell input");
+  if(t[0]) t[0].value = item.from || ""; if(t[1]) t[1].value = item.to || "";
+  const total = tr.querySelector(".total-cell input"), meal = tr.querySelector(".meal-cell input"), actual = tr.querySelector(".actual-cell input"), rem = tr.querySelector(".remarks-cell input");
+  if(total) total.value = item.totalHrs || "";
+  const tv = parseFloat(item.totalHrs), mv = parseFloat(item.mealTime), av = parseFloat(item.actualHrs);
+  if(meal) meal.value = (isNaN(mv)?0:Math.max(0,mv)).toFixed(2);
+  if(actual) actual.value = (isNaN(av) ? (isNaN(tv)?0:Math.max(0,tv-(isNaN(mv)?0:mv))) : Math.max(0,av)).toFixed(2);
+  if(rem) rem.value = item.remarks || "";
+}
+/** Two times on the same day must not overlap: both are marked red, and the claim cannot be submitted. */
+function checkDaySlots(dayTr){
+  const rows = [dayTr, ...otcfDaySlots(dayTr)];
+  const span = rows.map(r=>{ const t = r.querySelectorAll(".time-cell input"); const a = timeToMinutes(t[0]?.value), b = timeToMinutes(t[1]?.value);
+    return a===null || b===null ? null : [a, b <= a ? b + 1440 : b]; });
+  const clash = rows.map(()=>false);
+  for(let i=0;i<span.length;i++) for(let j=i+1;j<span.length;j++){
+    if(span[i] && span[j] && span[i][0] < span[j][1] && span[j][0] < span[i][1]){ clash[i] = clash[j] = true; }
+  }
+  rows.forEach((r,i)=>r.querySelectorAll(".time-cell").forEach(td=>td.classList.toggle("slot-clash", clash[i])));
+  return clash.some(Boolean);
+}
+/** Employment Act reminders (warnings only): more than 12 hours in a day, more than 104 overtime hours in the month. */
+function otcfLimitWarnings(){
+  const out = [];
+  const wf = timeToMinutes(document.getElementById("whFrom").value), wt = timeToMinutes(document.getElementById("whTo").value);
+  const span = wf===null || wt===null ? 0 : ((wt - wf + 1440) % 1440) / 60;
+  let month = 0;
+  document.querySelectorAll("#tableBody tr.day-row").forEach(day=>{
+    const ot = [day, ...otcfDaySlots(day)].reduce((a,r)=>a + (parseFloat(r.querySelector(".actual-cell input")?.value) || 0), 0);
+    month += ot; if(ot <= 0) return;
+    const claim = day.querySelector(".claim-cell select")?.value || ""; const ph = !!day.querySelector(".ph-cell input")?.checked;
+    const normal = claim === "Normal" && !ph ? span : 0;
+    if(normal + ot > 12 + 1e-9) out.push(`Day ${day.querySelector(".date-cell").textContent}: ${(normal + ot).toFixed(2)} h in the day${normal ? ` (working hours ${normal.toFixed(2)} h + overtime ${ot.toFixed(2)} h)` : ''} — more than 12 hours.`);
+  });
+  if(month > 104 + 1e-9) out.push(`Overtime this month: ${month.toFixed(2)} h — more than the 104-hour monthly limit.`);
+  return out;
+}
+function updateOtcfWarnings(){
+  const box = document.getElementById("otcfLimitWarn"); if(!box) return;
+  const w = otcfLimitWarnings(); const clash = document.querySelector("#tableBody .slot-clash");
+  const parts = [];
+  if(clash) parts.push('<div class="otcf-warn bad"><b>Two OT times on the same day overlap</b> (marked red). Correct them before submitting.</div>');
+  if(w.length) parts.push(`<div class="otcf-warn"><b>Please check (Employment Act limits):</b><ul>${w.map(x=>`<li>${escapeHtmlOtcf(x)}</li>`).join('')}</ul><span style="font-size:12px;">You can still submit; the approver sees this too.</span></div>`);
+  box.innerHTML = parts.join('');
+}
+/** Line items for display: an extra time shows ↳ instead of repeating the date, day, PH and claim type. */
+function otcfDisplayItems(items){
+  return (items || []).map(it => Number(it.slot) > 1 ? { ...it, date: '↳', day: '', ph: false, claimType: '', _slot: Number(it.slot), _ph: it.ph, _day: it.day } : it);
 }
 
 // ---------- "Use the same OT Hours and Remarks for all Claim Type" sync ----------
@@ -1217,7 +1346,20 @@ function syncOtHoursAcrossRows(){
       const fromChanged = times[0] && times[0].value !== srcFrom;
       const toChanged = times[1] && times[1].value !== srcTo;
       const remarksChanged = remarksInput && remarksInput.value !== srcRemarks;
-      if(!fromChanged && !toChanged && !remarksChanged) return; // already in sync
+      // extra times on the template day: the same number, times, meal and remarks
+      const srcSlots = otcfDaySlots(source); let tSlots = otcfDaySlots(tr);
+      while(tSlots.length > srcSlots.length){ tSlots.pop().remove(); }
+      while(tSlots.length < srcSlots.length){ if(!addSlotRow(tr)) break; tSlots = otcfDaySlots(tr); }
+      refreshSlotButtons(tr);
+      srcSlots.forEach((sr, k)=>{
+        const tr2 = tSlots[k]; if(!tr2) return;
+        const a = sr.querySelectorAll('.time-cell input'), b = tr2.querySelectorAll('.time-cell input');
+        const meal = sr.querySelector('.meal-cell input')?.value || '0.00', rem = sr.querySelector('.remarks-cell input')?.value || '';
+        if(b[0].value === a[0].value && b[1].value === a[1].value && tr2.querySelector('.meal-cell input').value === meal && tr2.querySelector('.remarks-cell input').value === rem) return;
+        b[0].value = a[0].value; b[1].value = a[1].value; tr2.querySelector('.meal-cell input').value = meal; tr2.querySelector('.remarks-cell input').value = rem;
+        b[1].dispatchEvent(new Event('change'));
+      });
+      if(!fromChanged && !toChanged && !remarksChanged){ checkDaySlots(tr); return; } // already in sync
       if(times[0]) times[0].value = srcFrom;
       if(times[1]) times[1].value = srcTo;
       if(remarksInput) remarksInput.value = srcRemarks;
@@ -1238,6 +1380,7 @@ function updateGrandTotal(){
     if(!isNaN(v)) sum += v;
   });
   document.getElementById("grandTotal").textContent = sum.toFixed(2);
+  updateOtcfWarnings();
 }
 
 function recalcAllRowsForWorkingHours(){
@@ -1313,7 +1456,7 @@ onCompanyChange(); // set default logo + serial on load
 
 
 /* ===================== SUPABASE / AUTH / SUBMISSIONS ===================== */
-const VERSION_STAMP = "MEG-OTCF v2026.10.03-21:55";
+const VERSION_STAMP = "MEG-OTCF v2026.10.30-21:40";
 document.title = VERSION_STAMP;
 document.getElementById('loginVersionStamp').textContent = VERSION_STAMP;
 if(window.megOtcfUpdateDocumentRef) window.megOtcfUpdateDocumentRef();
@@ -1588,6 +1731,20 @@ function rememberOtcfValue(selectId, val){
 function collectOtcfPayload(status){
   const rows = [];
   document.querySelectorAll('#tableBody tr').forEach(tr=>{
+    if(tr.classList.contains('slot-row')){
+      const day = otcfDayOf(tr); if(!day) return;
+      const t = tr.querySelectorAll('.time-cell input');
+      if(!(t[0]?.value || t[1]?.value || parseFloat(tr.querySelector('.total-cell input')?.value) > 0 || tr.querySelector('.remarks-cell input')?.value)) return;   // an empty extra time is not saved
+      rows.push({
+        date: day.querySelector('.date-cell')?.textContent || '', day: day.querySelector('.day-cell')?.textContent || '',
+        ph: !!day.querySelector('.ph-cell input')?.checked, claimType: day.querySelector('.claim-cell select')?.value || '',
+        from: t[0] ? t[0].value : '', to: t[1] ? t[1].value : '',
+        totalHrs: tr.querySelector('.total-cell input')?.value || '', mealTime: tr.querySelector('.meal-cell input')?.value || '0.00',
+        actualHrs: tr.querySelector('.actual-cell input')?.value || '', remarks: tr.querySelector('.remarks-cell input')?.value || '',
+        slot: Number(tr.dataset.slot) || 2
+      });
+      return;
+    }
     const dateCell = tr.querySelector('.date-cell');
     const dayCell = tr.querySelector('.day-cell');
     const phCheckbox = tr.querySelector('.ph-cell input');
@@ -1709,37 +1866,21 @@ async function selectDraftToLoad(index){
   document.getElementById('year').value = draft.year || '';
   buildTable();
 
-  const rows = document.querySelectorAll('#tableBody tr');
+  // matched by date (an extra time of a day is added under it); drafts saved before time slots have one line per day
+  const dayRows = [...document.querySelectorAll('#tableBody tr.day-row')];
+  const byDate = new Map(dayRows.map(tr => [String(tr.querySelector('.date-cell').textContent).trim(), tr]));
   const items = draft.line_items || [];
-  rows.forEach((tr, i) => {
-    const item = items[i];
-    if(!item) return;
-    const phCheckbox = tr.querySelector('.ph-cell input');
-    const claimSelect = tr.querySelector('.claim-cell select');
-    const timeInputs = tr.querySelectorAll('.time-cell input');
-    const totalInput = tr.querySelector('.total-cell input');
-    const mealInput = tr.querySelector('.meal-cell input');
-    const actualInput = tr.querySelector('.actual-cell input');
-    const remarksInput = tr.querySelector('.remarks-cell input');
-    if(phCheckbox){ phCheckbox.checked = Boolean(item.ph); tr.classList.toggle('ph-row', phCheckbox.checked); }
+  items.forEach((item, i) => {
+    const day = byDate.get(String(item.date ?? '').trim()) || (Number(item.slot) > 1 ? null : dayRows[i]);
+    if(!day) return;
+    if(Number(item.slot) > 1){ addSlotRow(day, item); return; }
+    const phCheckbox = day.querySelector('.ph-cell input');
+    const claimSelect = day.querySelector('.claim-cell select');
+    if(phCheckbox){ phCheckbox.checked = Boolean(item.ph); day.classList.toggle('ph-row', phCheckbox.checked); }
     if(claimSelect) claimSelect.value = item.claimType || '';
-    if(timeInputs[0]) timeInputs[0].value = item.from || '';
-    if(timeInputs[1]) timeInputs[1].value = item.to || '';
-    // Total hrs is restored directly from the saved value rather than
-    // recalculated from from/to — it's editable/overridable on this form,
-    // so the saved figure may not match what a fresh recalculation would
-    // produce, and the saved one is the one that's actually correct.
-    if(totalInput) totalInput.value = item.totalHrs || '';
-    const legacyTotal = parseFloat(item.totalHrs);
-    const savedMeal = parseFloat(item.mealTime);
-    const savedActual = parseFloat(item.actualHrs);
-    if(mealInput) mealInput.value = (isNaN(savedMeal)?0:Math.max(0,savedMeal)).toFixed(2);
-    if(actualInput){
-      const fallbackActual = isNaN(legacyTotal)?0:Math.max(0,legacyTotal-(isNaN(savedMeal)?0:savedMeal));
-      actualInput.value = (isNaN(savedActual)?fallbackActual:Math.max(0,savedActual)).toFixed(2);
-    }
-    if(remarksInput) remarksInput.value = item.remarks || '';
+    fillOtcfTimes(day, item);
   });
+  dayRows.forEach(tr => checkDaySlots(tr));
   updateGrandTotal();
   setClaimWorkflowStatus('draft', false);
 }
@@ -1871,7 +2012,10 @@ async function submitClaim(){
     alert('Can Submit permission is required to submit an OTCF claim. Approver permission alone does not grant submission rights.');
     return;
   }
-  if(!confirm('Submit this claim for approval? You will not be able to edit it after submitting.')) return;
+  document.querySelectorAll('#tableBody tr.day-row').forEach(tr => checkDaySlots(tr));
+  if(document.querySelector('#tableBody .slot-clash')){ alert('Two OT times on the same day overlap (marked red). Correct them before submitting.'); return; }
+  const limitWarn = otcfLimitWarnings();
+  if(!confirm((limitWarn.length ? 'Please check (Employment Act limits):\n• ' + limitWarn.join('\n• ') + '\n\nYou can still submit; the approver sees this too.\n\n' : '') + 'Submit this claim for approval? You will not be able to edit it after submitting.')) return;
 
   const submitBtn = document.getElementById('btnSubmitClaim');
   const originalText = submitBtn ? submitBtn.textContent : '';
@@ -2070,8 +2214,8 @@ function openApprovalReview(id){
   const monthName = MONTH_NAMES[(sub.month||1)-1] || '';
   const items = Array.isArray(sub.line_items) ? sub.line_items : [];
 
-  const rowsHtml = items.map(it=>{
-    const rowClass = it.ph ? 'ph-row' : (['Off Day','Rest Day'].includes(it.claimType) ? 'weekend-row' : '');
+  const rowsHtml = otcfDisplayItems(items).map(it=>{
+    const rowClass = (it._slot ? 'slot-row ' : '') + (it.ph || it._ph ? 'ph-row' : (['Off Day','Rest Day'].includes(it.claimType) ? 'weekend-row' : ''));
     return `<tr class="${rowClass}">
       <td>${escapeHtmlOtcf(it.date)}</td>
       <td>${escapeHtmlOtcf(it.day)}</td>
@@ -2233,7 +2377,7 @@ function setStatus(msg){
 
 async function generatePDFBlob(sheetEl){
   const sheet = sheetEl || document.querySelector(".sheet");
-  const canvas = await html2canvas(sheet, { scale: 2, useCORS: true });
+  const canvas = await html2canvas(sheet, { scale: 2, useCORS: true, ignoreElements: el => !!(el.classList && (el.classList.contains('slot-btn') || el.id === 'otcfLimitWarn')) });
   const imgData = canvas.toDataURL("image/jpeg", 0.95);
 
   const { jsPDF } = window.jspdf;
@@ -2313,8 +2457,8 @@ function makeReadOnlySheetHtml(sub){
   const grandTotal = sub.total_hours != null ? Number(sub.total_hours).toFixed(2) : '0.00';
   const approvedDate = sub.approved_at ? sub.approved_at.slice(0,10).split('-').reverse().join('/') : '';
 
-  const rowsHtml = items.map(it=>{
-    const trClass = it.ph ? 'ph-row' : (['Saturday','Sunday'].includes(it.day) ? 'weekend' : '');
+  const rowsHtml = otcfDisplayItems(items).map(it=>{
+    const trClass = (it._slot ? 'slot-row ' : '') + (it.ph || it._ph ? 'ph-row' : (['Saturday','Sunday'].includes(it.day || it._day) ? 'weekend' : ''));
     return `<tr class="${trClass}">
       <td class="date-cell">${escapeHtmlOtcf(it.date)}</td>
       <td class="day-cell">${escapeHtmlOtcf(it.day)}</td>
@@ -2436,7 +2580,7 @@ function generateDisapprovalSummaryPdf(sub, reason){
   y += 5;
   pdf.setDrawColor(180); pdf.line(15, y, 195, y); y += 4;
   pdf.setFont(undefined, 'normal'); pdf.setFontSize(9);
-  const items = (Array.isArray(sub.line_items) ? sub.line_items : []).filter(it => it.claimType);
+  const items = otcfDisplayItems((Array.isArray(sub.line_items) ? sub.line_items : []).filter(it => it.claimType));
   items.forEach(it=>{
     if(y > 275){ pdf.addPage(); y = 20; }
     pdf.text(String(it.date || ''), 15, y);
@@ -2544,7 +2688,7 @@ window.addEventListener('load', async ()=>{
 /* MEG-OTCF v2026.10.03-21:55 — entity approver scope + 2dp + original-form approved PDF */
 (function(){
   'use strict';
-  const BUILD_VERSION = 'MEG-OTCF v2026.10.03-21:55';
+  const BUILD_VERSION = 'MEG-OTCF v2026.10.30-21:40';
   const SCOPE_OPTIONS = [
     ['', '-- Select scope --'],
     ['myeden', 'MyEden Group + MyEden Edu Hub Sdn Bhd'],
@@ -2663,8 +2807,8 @@ window.addEventListener('load', async ()=>{
     const items = Array.isArray(sub.line_items) ? sub.line_items : [];
     const numDays = sub.no_of_days || items.length || '';
     const approvedDate = sub.approved_at ? fmtDateDMY(sub.approved_at.slice(0,10)) : '';
-    const rowsHtml = items.map(it=>{
-      const trClass = it.ph ? 'ph-row' : (['Saturday','Sunday'].includes(it.day) ? 'weekend' : '');
+    const rowsHtml = otcfDisplayItems(items).map(it=>{
+      const trClass = (it._slot ? 'slot-row ' : '') + (it.ph || it._ph ? 'ph-row' : (['Saturday','Sunday'].includes(it.day || it._day) ? 'weekend' : ''));
       return `<tr class="${trClass}">
         <td class="date-cell">${escapeHtmlOtcf(it.date)}</td>
         <td class="day-cell">${escapeHtmlOtcf(it.day)}</td>
@@ -3082,7 +3226,7 @@ window.addEventListener('load', async ()=>{
 
 /* v16:45 — persisted OTCF identity lock */
 (function(){
-  const RELEASE='v2026.10.03-21:55';
+  const RELEASE='v2026.10.30-21:40';
   function setLocked(locked){
     ['companySelect','serialYYYYMM','serialDD','serialHHMM'].forEach(id=>{
       const el=document.getElementById(id);
